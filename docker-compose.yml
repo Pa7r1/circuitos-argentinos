@@ -26,19 +26,13 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      GPX_DIR: /data/gpx
-      MEDIA_DIR: /data/media
     ports:
       - '${PORT:-3000}:${PORT:-3000}'
     volumes:
       - .:/app
-      - gpx_data:/data/gpx
-      - media_data:/data/media
     depends_on:
       db:
         condition: service_healthy
 
 volumes:
   db_data:
-  gpx_data:
-  media_data:

@@ -2,11 +2,8 @@ import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
-import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
-import { mkdir } from 'node:fs/promises';
-import path from 'node:path';
 import type { Config } from './config.js';
 import type { Db } from './db/index.js';
 import { DomainError, errorHandler, unauthorized } from './lib/errors.js';
@@ -17,7 +14,7 @@ import { authRepository } from './modules/auth/repository.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { authService } from './modules/auth/service.js';
 import { circuitsRepository } from './modules/circuits/repository.js';
-import { circuitsRoutes } from './modules/circuits/routes.js';
+import { circuitsRoutes, mediaRoutes } from './modules/circuits/routes.js';
 import { circuitsService } from './modules/circuits/service.js';
 
 declare module 'fastify' {
@@ -54,14 +51,6 @@ export async function buildApp(config: Config, db: Db): Promise<FastifyInstance>
     limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 20 },
   });
 
-  await mkdir(config.MEDIA_DIR, { recursive: true });
-  await mkdir(config.GPX_DIR, { recursive: true });
-  // en prod Caddy sirve /media directo del volumen; esto cubre dev y fallback
-  await app.register(fastifyStatic, {
-    root: path.resolve(config.MEDIA_DIR),
-    prefix: '/media/',
-  });
-
   async function verificarToken(request: FastifyRequest): Promise<void> {
     try {
       await request.jwtVerify();
@@ -87,12 +76,16 @@ export async function buildApp(config: Config, db: Db): Promise<FastifyInstance>
   const circuitsRepo = circuitsRepository(db);
   const adminRepo = adminRepository(db);
   const auth = authService(authRepository(db));
+  const circuits = circuitsService(circuitsRepo);
+
+  // fuera de /api/v1: las URLs de las fotos guardadas son /media/:id/:archivo
+  await app.register(mediaRoutes(circuits));
 
   await app.register(
     async (v1) => {
       v1.get('/health', async () => ({ status: 'ok' }));
       await v1.register(authRoutes(config, auth), { prefix: '/auth' });
-      await v1.register(circuitsRoutes(circuitsService(circuitsRepo), config));
+      await v1.register(circuitsRoutes(circuits));
       await v1.register(adminRoutes(adminService(config, adminRepo, () => auth.countUsers())));
     },
     { prefix: '/api/v1' },

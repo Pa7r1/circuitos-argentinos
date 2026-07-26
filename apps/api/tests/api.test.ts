@@ -1,7 +1,5 @@
 import bcrypt from 'bcryptjs';
 import { readFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
@@ -55,8 +53,6 @@ beforeAll(async () => {
     ADMIN_USER: 'admin',
     ADMIN_PASSWORD_HASH: bcrypt.hashSync(ADMIN_PASSWORD, 4),
     JWT_SECRET: 'secreto-de-test-suficientemente-largo-1234',
-    GPX_DIR: await mkdtemp(path.join(os.tmpdir(), 'gpx-')),
-    MEDIA_DIR: await mkdtemp(path.join(os.tmpdir(), 'media-')),
   };
 
   const created = createDb(testUrl);
@@ -166,6 +162,7 @@ describe('auth', () => {
 describe('flujo admin completo', () => {
   let circuitId: string;
   let circuitSlug: string;
+  let fotoUrl: string;
 
   it('crea un circuito desde un GPX (multipart) en draft', async () => {
     const body = multipart([
@@ -260,6 +257,46 @@ describe('flujo admin completo', () => {
       payload: bad.payload,
     });
     expect(badRes.statusCode).toBe(400);
+
+    // la foto se guarda en la base: se recupera por su URL, sin pasar por el disco
+    fotoUrl = okRes.json<{ url: string }>().url;
+    const foto = await app.inject({ method: 'GET', url: fotoUrl });
+    expect(foto.statusCode).toBe(200);
+    expect(foto.headers['content-type']).toBe('image/png');
+    expect(foto.rawPayload.equals(fakePng)).toBe(true);
+  });
+
+  it('la foto se sirve sin sesión y cacheada, y da 404 si no existe', async () => {
+    const foto = await app.inject({ method: 'GET', url: fotoUrl });
+    expect(foto.headers['cache-control']).toContain('immutable');
+
+    const inexistente = await app.inject({ method: 'GET', url: `/media/${circuitId}/999.png` });
+    expect(inexistente.statusCode).toBe(404);
+  });
+
+  it('borrar la foto la quita de la base y deja de servirse', async () => {
+    const del = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/admin/circuits/${circuitId}/media`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: { url: fotoUrl },
+    });
+    expect(del.statusCode).toBe(204);
+    const foto = await app.inject({ method: 'GET', url: fotoUrl });
+    expect(foto.statusCode).toBe(404);
+  });
+
+  it('descarga el GPX original del circuito creado, guardado en la base', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/v1/circuits/${circuitSlug}/gpx`,
+      headers: userAuth,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toBe('application/gpx+xml');
+    expect(res.headers['content-disposition']).toContain(`${circuitSlug}.gpx`);
+    // los bytes son exactamente los que se subieron, no una reconstrucción
+    expect(res.rawPayload.equals(gpxFixture)).toBe(true);
   });
 
   it('DELETE archiva (soft delete): desaparece de público pero sigue en admin', async () => {

@@ -24,6 +24,11 @@ const geographyPoint = customType<{ data: string }>({
   dataType: () => 'geography(Point,4326)',
 });
 
+/** Contenido binario de fotos y archivos GPX. */
+const bytea = customType<{ data: Buffer }>({
+  dataType: () => 'bytea',
+});
+
 export const disciplines = pgTable('disciplines', {
   id: smallserial('id').primaryKey(),
   slug: text('slug').notNull().unique(),
@@ -129,6 +134,24 @@ export const circuitMedia = pgTable(
     url: text('url').notNull(),
     kind: text('kind').notNull().default('photo'),
     position: smallint('position').notNull().default(0),
+    // los archivos viven en la base, no en disco: el plan gratuito de Render borra
+    // el disco en cada despliegue y las fotos desaparecían
+    data: bytea('data').notNull(),
+    contentType: text('content_type').notNull(),
   },
   (t) => [check('circuit_media_kind_check', sql`${t.kind} in ('photo','video')`)],
 );
+
+/**
+ * GPX original de cada circuito, para descargarlo y abrirlo en Relive o Strava.
+ * Va en su propia tabla y no como columna de `circuits` para que las consultas
+ * del mapa no arrastren los bytes del archivo.
+ */
+export const circuitGpx = pgTable('circuit_gpx', {
+  circuitId: uuid('circuit_id')
+    .primaryKey()
+    .references(() => circuits.id, { onDelete: 'cascade' }),
+  fileName: text('file_name').notNull(),
+  content: bytea('content').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});

@@ -1,5 +1,3 @@
-import { mkdir, rm, writeFile } from 'node:fs/promises';
-import path from 'node:path';
 import type {
   AdminCircuitListItem,
   CircuitCreateFields,
@@ -21,6 +19,9 @@ const IMAGE_TYPES: { ext: string; mime: string; matches: (b: Buffer) => boolean 
   },
 ];
 
+/** Dónde se descarga el GPX de un circuito. Se guarda en `circuits.gpx_url`. */
+const gpxDownloadUrl = (slug: string) => `/api/v1/circuits/${slug}/gpx`;
+
 export interface AdminStats {
   published: number;
   draft: number;
@@ -33,13 +34,6 @@ export function adminService(
   repo: AdminRepository,
   countUsers: () => Promise<number>,
 ) {
-  async function saveGpxFile(slug: string, gpxBuffer: Buffer): Promise<string> {
-    await mkdir(config.GPX_DIR, { recursive: true });
-    const filePath = path.join(config.GPX_DIR, `${slug}.gpx`);
-    await writeFile(filePath, gpxBuffer);
-    return `/gpx/${slug}.gpx`;
-  }
-
   async function resolveRefs(
     discipline?: string,
     province?: string,
@@ -73,13 +67,10 @@ export function adminService(
       };
     },
 
-    /** Borra la foto de la base y del disco (si el archivo ya no está, no falla). */
     async removeMedia(id: string, url: string): Promise<void> {
       const existing = await repo.findById(id);
       if (!existing) throw notFound('Circuito no encontrado');
       if (!(await repo.deleteMedia(id, url))) throw notFound('Foto no encontrada');
-      const fileName = path.basename(url);
-      await rm(path.join(config.MEDIA_DIR, id, fileName), { force: true });
     },
 
     async detail(id: string) {
@@ -93,9 +84,8 @@ export function adminService(
       const track = processGpx(gpxBuffer.toString('utf8'));
       const slug = await uniqueSlug(fields.name, (s) => repo.slugExists(s));
       const wkt = trackToWkt(track.coordinates);
-      const gpxUrl = await saveGpxFile(slug, gpxBuffer);
 
-      return repo.create({
+      const creado = await repo.create({
         slug,
         name: fields.name,
         description: fields.description ?? null,
@@ -109,9 +99,13 @@ export function adminService(
         startWkt: wkt.start,
         distanceM: track.distanceM,
         elevationGainM: track.elevationGainM,
-        gpxUrl,
+        gpxUrl: gpxDownloadUrl(slug),
         schedules: fields.schedules ?? [],
       });
+
+      // el archivo va después: la tabla del GPX referencia al circuito
+      await repo.saveGpx(creado.id, `${slug}.gpx`, gpxBuffer);
+      return creado;
     },
 
     async update(id: string, body: CircuitUpdateBody): Promise<void> {
@@ -140,15 +134,15 @@ export function adminService(
 
       const track = processGpx(gpxBuffer.toString('utf8'));
       const wkt = trackToWkt(track.coordinates);
-      const gpxUrl = await saveGpxFile(existing.slug, gpxBuffer);
 
       await repo.update(id, {
         trackWkt: wkt.track,
         startWkt: wkt.start,
         distanceM: track.distanceM,
         elevationGainM: track.elevationGainM,
-        gpxUrl,
+        gpxUrl: gpxDownloadUrl(existing.slug),
       });
+      await repo.saveGpx(id, `${existing.slug}.gpx`, gpxBuffer);
     },
 
     /** Soft delete: el circuito pasa a archived, nunca se borra la fila. */
@@ -167,13 +161,9 @@ export function adminService(
         throw badRequest('IMAGEN_INVALIDA', 'Solo se aceptan imágenes JPEG, PNG o WebP');
       }
 
-      const dir = path.join(config.MEDIA_DIR, id);
-      await mkdir(dir, { recursive: true });
       const fileName = `${Date.now()}.${type.ext}`;
-      await writeFile(path.join(dir, fileName), file);
-
       const url = `/media/${id}/${fileName}`;
-      await repo.addMedia(id, url, 'photo');
+      await repo.addMedia(id, url, 'photo', file, type.mime);
       return { url };
     },
   };

@@ -224,13 +224,30 @@ export function adminRepository(db: Db) {
       return rows.length > 0;
     },
 
-    async addMedia(circuitId: string, url: string, kind: string): Promise<void> {
+    async addMedia(
+      circuitId: string,
+      url: string,
+      kind: string,
+      data: Buffer,
+      contentType: string,
+    ): Promise<void> {
       await db.execute(sql`
-        INSERT INTO circuit_media (circuit_id, url, kind, position)
+        INSERT INTO circuit_media (circuit_id, url, kind, position, data, content_type)
         VALUES (
           ${circuitId}, ${url}, ${kind},
-          (SELECT COALESCE(MAX(position) + 1, 0) FROM circuit_media WHERE circuit_id = ${circuitId})
+          (SELECT COALESCE(MAX(position) + 1, 0) FROM circuit_media WHERE circuit_id = ${circuitId}),
+          ${data}, ${contentType}
         )
+      `);
+    },
+
+    /** Guarda o reemplaza el GPX original del circuito. */
+    async saveGpx(circuitId: string, fileName: string, content: Buffer): Promise<void> {
+      await db.execute(sql`
+        INSERT INTO circuit_gpx (circuit_id, file_name, content)
+        VALUES (${circuitId}, ${fileName}, ${content})
+        ON CONFLICT (circuit_id) DO UPDATE
+          SET file_name = EXCLUDED.file_name, content = EXCLUDED.content, updated_at = now()
       `);
     },
   };

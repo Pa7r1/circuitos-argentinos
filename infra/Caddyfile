@@ -7,12 +7,5 @@ api.circuitosargentinos.com {
 		-Server
 	}
 
-	# las imágenes se sirven directo del volumen, sin pasar por node
-	handle_path /media/* {
-		root * /srv/media
-		file_server
-		header Cache-Control "public, max-age=604800"
-	}
-
 	reverse_proxy api:3000
 }

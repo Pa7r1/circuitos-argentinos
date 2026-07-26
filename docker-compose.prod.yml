@@ -28,11 +28,6 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      GPX_DIR: /data/gpx
-      MEDIA_DIR: /data/media
-    volumes:
-      - gpx_data:/data/gpx
-      - media_data:/data/media
     depends_on:
       db:
         condition: service_healthy
@@ -45,7 +40,6 @@ services:
       - '443:443'
     volumes:
       - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
-      - media_data:/srv/media:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
@@ -77,7 +71,5 @@ services:
 
 volumes:
   db_data:
-  gpx_data:
-  media_data:
   caddy_data:
   caddy_config:

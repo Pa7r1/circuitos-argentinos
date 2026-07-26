@@ -1,8 +1,4 @@
 import bcrypt from 'bcryptjs';
-import { readFileSync } from 'node:fs';
-import { mkdtemp, writeFile } from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import type { AuthResponse, LoginResponse } from '@circuitos/shared';
@@ -17,18 +13,12 @@ const USER_PASSWORD = 'password-de-usuario';
 
 let app: FastifyInstance;
 let client: ReturnType<typeof createDb>['client'];
-let gpxDir: string;
 
 beforeAll(async () => {
   const testUrl = await createCleanTestDb();
+  // el seed deja el GPX del circuito de ejemplo en la base, así que la descarga
+  // se puede probar sin escribir nada en disco
   await runSeed(testUrl);
-  gpxDir = await mkdtemp(path.join(os.tmpdir(), 'gpx-'));
-
-  // el circuito del seed necesita su archivo en disco para probar la descarga
-  await writeFile(
-    path.join(gpxDir, 'quebrada-del-condor.gpx'),
-    readFileSync(path.join(import.meta.dirname, 'fixtures/track.gpx')),
-  );
 
   const config: Config = {
     NODE_ENV: 'test',
@@ -38,8 +28,6 @@ beforeAll(async () => {
     ADMIN_USER: 'admin',
     ADMIN_PASSWORD_HASH: bcrypt.hashSync(ADMIN_PASSWORD, 4),
     JWT_SECRET: 'secreto-de-test-suficientemente-largo-1234',
-    GPX_DIR: gpxDir,
-    MEDIA_DIR: await mkdtemp(path.join(os.tmpdir(), 'media-')),
   };
 
   const created = createDb(testUrl);

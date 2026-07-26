@@ -19,7 +19,6 @@
     "@fastify/jwt": "^10.2.1",
     "@fastify/multipart": "^10.1.0",
     "@fastify/rate-limit": "^11.1.0",
-    "@fastify/static": "^10.1.2",
     "@tmcw/togeojson": "^7.1.2",
     "@turf/helpers": "^7.3.5",
     "@turf/length": "^7.3.5",

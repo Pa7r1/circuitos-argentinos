@@ -13,6 +13,18 @@ export function circuitsService(repo: CircuitsRepository) {
       if (!circuit) throw notFound('Circuito no encontrado');
       return circuit;
     },
+
+    async photo(url: string): Promise<{ data: Buffer; contentType: string }> {
+      const foto = await repo.mediaByUrl(url);
+      if (!foto) throw notFound('Foto no encontrada');
+      return foto;
+    },
+
+    async gpx(slug: string): Promise<{ fileName: string; content: Buffer }> {
+      const archivo = await repo.gpxBySlug(slug);
+      if (!archivo) throw notFound('Este circuito no tiene archivo GPX disponible');
+      return archivo;
+    },
   };
 }
 

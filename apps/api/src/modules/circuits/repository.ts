@@ -68,6 +68,27 @@ export function circuitsRepository(db: Db) {
       }));
     },
 
+    /** Foto guardada en la base. La URL es la clave: es única por circuito. */
+    async mediaByUrl(url: string): Promise<{ data: Buffer; contentType: string } | null> {
+      const rows = (await db.execute(sql`
+        SELECT data, content_type FROM circuit_media WHERE url = ${url}
+      `)) as unknown as { data: Buffer; content_type: string }[];
+      const row = rows[0];
+      return row ? { data: row.data, contentType: row.content_type } : null;
+    },
+
+    /** GPX original de un circuito publicado. */
+    async gpxBySlug(slug: string): Promise<{ fileName: string; content: Buffer } | null> {
+      const rows = (await db.execute(sql`
+        SELECT g.file_name, g.content
+        FROM circuit_gpx g
+        JOIN circuits c ON c.id = g.circuit_id
+        WHERE c.slug = ${slug} AND c.status = 'published'
+      `)) as unknown as { file_name: string; content: Buffer }[];
+      const row = rows[0];
+      return row ? { fileName: row.file_name, content: row.content } : null;
+    },
+
     async detailBySlug(slug: string): Promise<CircuitDetail | null> {
       const rows = await db.execute(sql`
         SELECT c.id, c.slug, c.name, c.description,

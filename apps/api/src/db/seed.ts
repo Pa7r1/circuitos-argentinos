@@ -1,6 +1,4 @@
 import { sql } from 'drizzle-orm';
-import { mkdir, writeFile } from 'node:fs/promises';
-import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createDb } from './index.js';
 import { DISCIPLINES, PROVINCES } from '@circuitos/shared';
@@ -26,8 +24,7 @@ function sampleTrackWkt(): { track: string; start: string; points: [number, numb
 }
 
 /** GPX del circuito de ejemplo, para que la descarga funcione desde el primer arranque. */
-async function writeSampleGpx(points: [number, number][]): Promise<string> {
-  const dir = process.env.GPX_DIR ?? './data/gpx';
+function sampleGpx(points: [number, number][]): string {
   const trkpts = points
     .map(([lon, lat]) => `      <trkpt lat="${lat}" lon="${lon}"><ele>520</ele></trkpt>`)
     .join('\n');
@@ -41,9 +38,7 @@ ${trkpts}
   </trk>
 </gpx>
 `;
-  await mkdir(dir, { recursive: true });
-  await writeFile(path.join(dir, 'quebrada-del-condor.gpx'), gpx);
-  return '/gpx/quebrada-del-condor.gpx';
+  return gpx;
 }
 
 export async function runSeed(url: string): Promise<void> {
@@ -53,7 +48,7 @@ export async function runSeed(url: string): Promise<void> {
     await db.insert(provinces).values(PROVINCES.map((p) => ({ ...p }))).onConflictDoNothing();
 
     const { track, start, points } = sampleTrackWkt();
-    const gpxUrl = await writeSampleGpx(points);
+    const gpxUrl = '/api/v1/circuits/quebrada-del-condor/gpx';
     await db.execute(sql`
       INSERT INTO circuits
         (slug, name, description, discipline_id, province_id, locality, difficulty,
@@ -68,6 +63,15 @@ export async function runSeed(url: string): Promise<void> {
       FROM disciplines d, provinces p
       WHERE d.slug = 'enduro' AND p.slug = 'la-rioja'
       ON CONFLICT (slug) DO NOTHING
+    `);
+
+    // el GPX va en la base, así la descarga funciona desde el primer arranque y
+    // sobrevive a los despliegues (en Render el disco se borra en cada uno)
+    await db.execute(sql`
+      INSERT INTO circuit_gpx (circuit_id, file_name, content)
+      SELECT id, 'quebrada-del-condor.gpx', ${Buffer.from(sampleGpx(points))}
+      FROM circuits WHERE slug = 'quebrada-del-condor'
+      ON CONFLICT (circuit_id) DO NOTHING
     `);
   } finally {
     await client.end();

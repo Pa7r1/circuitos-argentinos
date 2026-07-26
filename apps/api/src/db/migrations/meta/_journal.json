@@ -15,6 +15,13 @@
       "when": 1785083884911,
       "tag": "0001_usuarios",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785093834777,
+      "tag": "0002_archivos_en_base",
+      "breakpoints": true
     }
   ]
 }

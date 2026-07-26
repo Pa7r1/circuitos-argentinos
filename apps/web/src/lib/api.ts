@@ -44,7 +44,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       error?.message ?? `Error ${res.status}`,
     );
   }
-  return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
+  if (res.status === 204) return undefined as T;
+  // Si el build salió sin VITE_API_URL, los pedidos van al propio sitio y el
+  // servidor de assets contesta el index.html con estado 200. Sin este control,
+  // el error sería un fallo de sintaxis de JSON imposible de interpretar.
+  if (!res.headers.get('content-type')?.includes('json')) {
+    throw new RequestError(
+      res.status,
+      'RESPUESTA_NO_JSON',
+      'La API respondió algo que no es JSON. Si esto pasa en producción, falta VITE_API_URL en el build.',
+    );
+  }
+  return (await res.json()) as T;
 }
 
 function post<T>(path: string, body: unknown): Promise<T> {
