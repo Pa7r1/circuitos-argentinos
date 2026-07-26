@@ -41,7 +41,10 @@ ${trkpts}
   return gpx;
 }
 
-export async function runSeed(url: string): Promise<void> {
+/** Email de la cuenta administradora; el mismo en desarrollo y en producción. */
+export const ADMIN_EMAIL = 'admin@circuitos.com';
+
+export async function runSeed(url: string, adminPasswordHash?: string): Promise<void> {
   const { db, client } = createDb(url);
   try {
     await db.insert(disciplines).values(DISCIPLINES.map((d) => ({ ...d }))).onConflictDoNothing();
@@ -73,6 +76,19 @@ export async function runSeed(url: string): Promise<void> {
       FROM circuits WHERE slug = 'quebrada-del-condor'
       ON CONFLICT (circuit_id) DO NOTHING
     `);
+
+    // Cuenta administradora. Sin esto una base recién creada no tiene ninguna
+    // cuenta con rol admin y /admin rechaza cualquier credencial. Se reutiliza el
+    // hash de ADMIN_PASSWORD_HASH: no se inventa una contraseña ni se escribe
+    // ninguna en el repositorio. El ON CONFLICT lo hace seguro contra la base de
+    // producción, donde la cuenta ya existe.
+    if (adminPasswordHash) {
+      await db.execute(sql`
+        INSERT INTO users (name, email, password_hash, role)
+        VALUES ('Administración', ${ADMIN_EMAIL}, ${adminPasswordHash}, 'admin')
+        ON CONFLICT (email) DO NOTHING
+      `);
+    }
   } finally {
     await client.end();
   }
@@ -86,6 +102,12 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   }
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL no definida');
-  await runSeed(url);
-  console.log('seed aplicado');
+  const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH;
+  if (!adminPasswordHash) {
+    console.warn('ADMIN_PASSWORD_HASH no definida: no se crea la cuenta de administración');
+  }
+  await runSeed(url, adminPasswordHash);
+  console.log(
+    adminPasswordHash ? `seed aplicado (admin: ${ADMIN_EMAIL})` : 'seed aplicado (sin admin)',
+  );
 }
