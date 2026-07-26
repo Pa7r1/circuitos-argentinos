@@ -1,4 +1,4 @@
-/** Distancia en metros entre dos puntos [lon, lat] (haversine). */
+/** Distancia en metros entre dos puntos [lon, lat] (orden GeoJSON, como los da la API). */
 export function distanceM(a: [number, number], b: [number, number]): number {
   const R = 6371000;
   const toRad = (deg: number) => (deg * Math.PI) / 180;
@@ -10,15 +10,19 @@ export function distanceM(a: [number, number], b: [number, number]): number {
   return Math.round(2 * R * Math.asin(Math.sqrt(h)));
 }
 
-/** Bounds [SO, NE] de un círculo de radio dado alrededor de un punto. */
-export function boundsAround(
+/**
+ * Bounds de un círculo alrededor de un punto [lon, lat], en el orden que espera
+ * Leaflet: [[sur, oeste], [norte, este]].
+ */
+export function latLngBoundsAround(
   center: [number, number],
   radiusM: number,
 ): [[number, number], [number, number]] {
-  const latDelta = (radiusM / 111_320) * 1;
-  const lonDelta = radiusM / (111_320 * Math.cos((center[1] * Math.PI) / 180));
+  const [lon, lat] = center;
+  const latDelta = radiusM / 111_320;
+  const lonDelta = radiusM / (111_320 * Math.cos((lat * Math.PI) / 180));
   return [
-    [center[0] - lonDelta, center[1] - latDelta],
-    [center[0] + lonDelta, center[1] + latDelta],
+    [lat - latDelta, lon - lonDelta],
+    [lat + latDelta, lon + lonDelta],
   ];
 }

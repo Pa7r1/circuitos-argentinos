@@ -1,4 +1,3 @@
-import type maplibregl from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import type { CircuitDetail } from '@circuitos/shared';
@@ -12,77 +11,57 @@ import {
 } from '../../lib/format';
 import { API_URL } from '../../lib/api';
 import { MapLayerToggle } from '../../components/MapLayerToggle';
-import { applyMapLayer, MAP_STYLE, type MapLayer } from '../../lib/map-style';
+import { type MapLayer } from '../../lib/map-style';
 import { useCircuitDetail } from '../../lib/queries';
-import { useMaplibre } from '../../lib/use-maplibre';
+import { createBaseLayers, MAP_OPTIONS, useLeaflet } from '../../lib/use-leaflet';
 
 function TrackMap({ circuit }: { circuit: CircuitDetail }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
+  const applyLayerRef = useRef<((layer: MapLayer) => void) | null>(null);
   const [layer, setLayer] = useState<MapLayer>('satelite');
-  const gl = useMaplibre();
+  const L = useLeaflet();
 
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    if (map.isStyleLoaded()) applyMapLayer(map, layer);
-    else map.once('load', () => applyMapLayer(map, layer));
-  }, [layer, gl]);
+    applyLayerRef.current?.(layer);
+  }, [layer, L]);
 
   useEffect(() => {
-    if (!gl) return;
-    const coords = circuit.track.coordinates;
-    const bounds = coords.reduce(
-      (b, c) => b.extend([c[0], c[1]]),
-      new gl.LngLatBounds([coords[0]![0], coords[0]![1]], [coords[0]![0], coords[0]![1]]),
-    );
-    const map = new gl.Map({
-      container: containerRef.current!,
-      style: MAP_STYLE,
-      bounds,
-      fitBoundsOptions: { padding: 40 },
-      attributionControl: { compact: true },
-    });
-    mapRef.current = map;
-    map.on('load', () => {
-      map.addSource('track', {
-        type: 'geojson',
-        data: { type: 'Feature', properties: {}, geometry: circuit.track },
-      });
-      map.addLayer({
-        id: 'track-casing',
-        type: 'line',
-        source: 'track',
-        paint: { 'line-color': '#ffffff', 'line-width': 7 },
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-      });
-      map.addLayer({
-        id: 'track-line',
-        type: 'line',
-        source: 'track',
-        paint: { 'line-color': '#ea580c', 'line-width': 4 },
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-      });
-      const start = document.createElement('div');
-      start.className = 'h-4 w-4 rounded-full border-2 border-white bg-green-600 shadow';
-      new gl.Marker({ element: start })
-        .setLngLat([circuit.startPoint.coordinates[0], circuit.startPoint.coordinates[1]])
-        .addTo(map);
-    });
+    if (!L) return;
+    const latLngs = circuit.track.coordinates.map((c) => [c[1], c[0]] as [number, number]);
+    const map = L.map(containerRef.current!, MAP_OPTIONS);
+    applyLayerRef.current = createBaseLayers(L, map, layer);
+
+    // trazado: línea blanca de base para que se lea sobre cualquier terreno
+    L.polyline(latLngs, { color: '#ffffff', weight: 7 }).addTo(map);
+    L.polyline(latLngs, { color: '#ea580c', weight: 4 }).addTo(map);
+    map.fitBounds(L.latLngBounds(latLngs), { padding: [30, 30] });
+
+    L.marker([circuit.startPoint.coordinates[1], circuit.startPoint.coordinates[0]], {
+      icon: L.divIcon({
+        className: '',
+        html: '<div class="h-4 w-4 rounded-full border-2 border-white bg-green-600 shadow"></div>',
+        iconSize: [16, 16],
+        iconAnchor: [8, 8],
+      }),
+      alt: 'Punto de partida',
+      interactive: false,
+    }).addTo(map);
+
     return () => {
       map.remove();
-      mapRef.current = null;
+      applyLayerRef.current = null;
     };
-  }, [circuit, gl]);
+     
+  }, [circuit, L]);
 
   return (
     <div className="relative">
       <div
         ref={containerRef}
-        className="h-64 w-full sm:h-80"
+        className="h-64 w-full bg-stone-300 sm:h-80"
         aria-label={`Trazado del circuito ${circuit.name}`}
       />
-      <MapLayerToggle layer={layer} onChange={setLayer} className="absolute bottom-3 left-3" />
+      <MapLayerToggle layer={layer} onChange={setLayer} className="absolute bottom-3 left-3 z-[500]" />
     </div>
   );
 }

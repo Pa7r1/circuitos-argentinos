@@ -1,10 +1,10 @@
-import type maplibregl from 'maplibre-gl';
+import type { Map as LeafletMap, Marker } from 'leaflet';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { CircuitSummary } from '@circuitos/shared';
 import { DISCIPLINES } from '@circuitos/shared';
 import { MapLayerToggle } from '../../components/MapLayerToggle';
-import { createPin, setPinSelected } from '../../components/map-pin';
+import { PIN_ANCHOR, PIN_SIZE, pinSvg, setPinSelected } from '../../components/map-pin';
 import { useToast } from '../../components/Toast';
 import {
   ACCESS_LABEL,
@@ -16,11 +16,11 @@ import {
   formatDistanceAway,
   formatKm,
 } from '../../lib/format';
-import { boundsAround, distanceM } from '../../lib/geo';
+import { distanceM, latLngBoundsAround } from '../../lib/geo';
 import type { Place } from '../../lib/geocode';
-import { applyMapLayer, LA_RIOJA_BOUNDS, MAP_STYLE, type MapLayer } from '../../lib/map-style';
+import { LA_RIOJA_BOUNDS, type MapLayer } from '../../lib/map-style';
 import { useCircuits } from '../../lib/queries';
-import { useMaplibre } from '../../lib/use-maplibre';
+import { createBaseLayers, MAP_OPTIONS, useLeaflet } from '../../lib/use-leaflet';
 import { PlaceSearch } from './PlaceSearch';
 
 /** Radio de una búsqueda por lugar: amplio a propósito, el circuito puede estar
@@ -28,14 +28,18 @@ import { PlaceSearch } from './PlaceSearch';
 const SEARCH_RADIUS_M = 80_000;
 const WIDE_RADIUS_M = 200_000;
 
-/** Deja aire arriba y abajo para que el panel flotante y el bottom-sheet no tapen pines. */
-const FIT_PADDING = { top: 140, bottom: 120, left: 24, right: 24 };
+/** Deja aire para que el panel flotante y el bottom-sheet no tapen pines. */
+const FIT_OPTIONS = {
+  paddingTopLeft: [24, 140] as [number, number],
+  paddingBottomRight: [24, 120] as [number, number],
+};
 
 export function MapPage() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
-  const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
-  const meMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const mapRef = useRef<LeafletMap | null>(null);
+  const markersRef = useRef<Map<string, Marker>>(new Map());
+  const meMarkerRef = useRef<Marker | null>(null);
+  const applyLayerRef = useRef<((layer: MapLayer) => void) | null>(null);
 
   const [myPosition, setMyPosition] = useState<[number, number] | null>(null);
   const [layer, setLayer] = useState<MapLayer>('satelite');
@@ -44,7 +48,7 @@ export function MapPage() {
   const [radiusM, setRadiusM] = useState(SEARCH_RADIUS_M);
   const [selected, setSelected] = useState<CircuitSummary | null>(null);
   const toast = useToast();
-  const gl = useMaplibre();
+  const L = useLeaflet();
 
   // ponytail: una sola consulta con todos los publicados (tope 200 del server) y
   // el filtrado en memoria. Cuando haya más circuitos que ese tope, pasar a
@@ -67,32 +71,27 @@ export function MapPage() {
     return inRange.sort((a, b) => (a.away ?? 0) - (b.away ?? 0));
   }, [allCircuits, hidden, origin, place, radiusM]);
 
-  // mapa (recién cuando maplibre terminó de cargar)
+  // mapa, recién cuando Leaflet terminó de cargar
   useEffect(() => {
-    if (!gl) return;
-    const map = new gl.Map({
-      container: containerRef.current!,
-      style: MAP_STYLE,
-      bounds: LA_RIOJA_BOUNDS, // sin ubicación se ve toda la provincia
-      fitBoundsOptions: { padding: FIT_PADDING },
-      attributionControl: { compact: true },
-    });
-    mapRef.current = map;
+    if (!L) return;
+    const map = L.map(containerRef.current!, MAP_OPTIONS);
+    map.fitBounds(LA_RIOJA_BOUNDS, FIT_OPTIONS); // sin ubicación se ve toda la provincia
+    applyLayerRef.current = createBaseLayers(L, map, layer);
     map.on('click', () => setSelected(null));
+    mapRef.current = map;
     return () => {
       map.remove();
       mapRef.current = null;
       markersRef.current.clear();
       meMarkerRef.current = null;
+      applyLayerRef.current = null;
     };
-  }, [gl]);
+     
+  }, [L]);
 
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    if (map.isStyleLoaded()) applyMapLayer(map, layer);
-    else map.once('load', () => applyMapLayer(map, layer));
-  }, [layer, gl]);
+    applyLayerRef.current?.(layer);
+  }, [layer, L]);
 
   function locateMe(fromButton = false) {
     if (!navigator.geolocation) {
@@ -105,17 +104,21 @@ export function MapPage() {
         setMyPosition(lonLat);
         setPlace(null);
         const map = mapRef.current;
-        if (!map) return;
-        map.easeTo({ center: lonLat, zoom: 11 });
+        if (!map || !L) return;
+        map.setView([lonLat[1], lonLat[0]], 11);
         if (meMarkerRef.current) {
-          meMarkerRef.current.setLngLat(lonLat);
+          meMarkerRef.current.setLatLng([lonLat[1], lonLat[0]]);
         } else {
-          const dot = document.createElement('div');
-          dot.className = 'h-4 w-4 rounded-full border-2 border-white bg-blue-600 shadow-md';
-          dot.setAttribute('aria-label', 'Tu ubicación');
-          meMarkerRef.current = new gl!.Marker({ element: dot })
-            .setLngLat(lonLat)
-            .addTo(map);
+          meMarkerRef.current = L.marker([lonLat[1], lonLat[0]], {
+            icon: L.divIcon({
+              className: '',
+              html: '<div class="h-4 w-4 rounded-full border-2 border-white bg-blue-600 shadow-md"></div>',
+              iconSize: [16, 16],
+              iconAnchor: [8, 8],
+            }),
+            alt: 'Tu ubicación',
+            interactive: false,
+          }).addTo(map);
         }
       },
       () => {
@@ -130,13 +133,14 @@ export function MapPage() {
 
   // se pide la ubicación una sola vez, cuando el mapa ya puede mostrarla
   useEffect(() => {
-    if (gl) locateMe();
-  }, [gl]);
+    if (L) locateMe();
+     
+  }, [L]);
 
   // pines
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !gl) return;
+    if (!map || !L) return;
     const markers = markersRef.current;
     const vigentes = new Set(circuits.map((i) => i.circuit.slug));
 
@@ -150,28 +154,34 @@ export function MapPage() {
       if (markers.has(circuit.slug)) continue;
       const color = DISCIPLINE_COLOR[circuit.discipline] ?? '#ea580c';
       const letter = DISCIPLINE_LETTER[circuit.discipline] ?? '?';
-      const el = createPin(
-        color,
-        letter,
-        `${circuit.name}, ${DIFFICULTY_LABEL[circuit.difficulty]}`,
-      );
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        setSelected(circuit);
-      });
-      markers.set(
-        circuit.slug,
-        new gl.Marker({ element: el, anchor: 'bottom' })
-          .setLngLat([circuit.startPoint.coordinates[0], circuit.startPoint.coordinates[1]])
-          .addTo(map),
-      );
+      const marker = L.marker(
+        [circuit.startPoint.coordinates[1], circuit.startPoint.coordinates[0]],
+        {
+          icon: L.divIcon({
+            className: '',
+            html: pinSvg(color, letter),
+            iconSize: PIN_SIZE,
+            iconAnchor: PIN_ANCHOR,
+          }),
+          keyboard: true,
+          title: circuit.name,
+        },
+      ).addTo(map);
+      // con divIcon Leaflet no aplica `alt`: el nombre accesible va al elemento
+      const el = marker.getElement();
+      el?.setAttribute('role', 'button');
+      el?.setAttribute('aria-label', `${circuit.name}, ${DIFFICULTY_LABEL[circuit.difficulty]}`);
+      marker.on('click', () => setSelected(circuit));
+      marker.on('keypress', () => setSelected(circuit));
+      markers.set(circuit.slug, marker);
     }
-  }, [circuits, gl]);
+  }, [circuits, L]);
 
   // resaltar el pin del circuito abierto
   useEffect(() => {
     for (const [slug, marker] of markersRef.current) {
-      setPinSelected(marker.getElement(), slug === selected?.slug);
+      const el = marker.getElement();
+      if (el) setPinSelected(el, slug === selected?.slug);
     }
   }, [selected, circuits]);
 
@@ -183,15 +193,13 @@ export function MapPage() {
     setPlace(next);
     setRadiusM(SEARCH_RADIUS_M);
     setSelected(null);
-    mapRef.current?.fitBounds(boundsAround(next.lonLat, SEARCH_RADIUS_M), {
-      padding: FIT_PADDING,
-    });
+    mapRef.current?.fitBounds(latLngBoundsAround(next.lonLat, SEARCH_RADIUS_M), FIT_OPTIONS);
   }
 
   function clearPlace() {
     setPlace(null);
     setRadiusM(SEARCH_RADIUS_M);
-    mapRef.current?.fitBounds(LA_RIOJA_BOUNDS, { padding: FIT_PADDING });
+    mapRef.current?.fitBounds(LA_RIOJA_BOUNDS, FIT_OPTIONS);
   }
 
   const selectedAway = circuits.find((i) => i.circuit.slug === selected?.slug)?.away ?? null;
@@ -199,10 +207,10 @@ export function MapPage() {
   return (
     <main className="relative h-full">
       <h1 className="sr-only">Circuitos Argentinos — mapa de circuitos off-road</h1>
-      <div ref={containerRef} className="h-full w-full" aria-label="Mapa de circuitos" />
+      <div ref={containerRef} className="h-full w-full bg-stone-300" aria-label="Mapa de circuitos" />
 
       {/* panel flotante: buscador + ubicación, y debajo los filtros por disciplina */}
-      <div className="absolute top-3 left-1/2 z-10 w-[95%] max-w-xl -translate-x-1/2 space-y-2 rounded-2xl bg-white/95 p-2 shadow-lg backdrop-blur">
+      <div className="absolute top-3 left-1/2 z-[500] w-[95%] max-w-xl -translate-x-1/2 space-y-2 rounded-2xl bg-white/95 p-2 shadow-lg backdrop-blur">
         <div className="flex items-center gap-2">
           <PlaceSearch selected={place} onSelect={selectPlace} onClear={clearPlace} />
           <button
@@ -249,7 +257,7 @@ export function MapPage() {
       </div>
 
       {/* capa del mapa y contador: debajo del panel, para que el bottom-sheet no los tape */}
-      <div className="absolute top-32 left-3 z-10 flex flex-wrap items-center gap-2">
+      <div className="absolute top-32 left-3 z-[500] flex flex-wrap items-center gap-2">
         <MapLayerToggle layer={layer} onChange={setLayer} />
         {!isPending && (
           <span className="rounded-lg bg-white/95 px-2.5 py-1.5 text-xs font-medium shadow-md">
@@ -260,14 +268,14 @@ export function MapPage() {
       </div>
 
       {isPending && (
-        <p className="absolute top-1/2 left-1/2 z-10 -translate-x-1/2 rounded-lg bg-white/95 px-4 py-2 text-sm font-medium shadow-md">
+        <p className="absolute top-1/2 left-1/2 z-[500] -translate-x-1/2 rounded-lg bg-white/95 px-4 py-2 text-sm font-medium shadow-md">
           Cargando circuitos…
         </p>
       )}
 
       {/* sin resultados dentro del radio buscado */}
       {place && !isPending && circuits.length === 0 && (
-        <div className="absolute bottom-24 left-1/2 z-10 w-[90%] max-w-sm -translate-x-1/2 rounded-xl bg-white p-3 text-center shadow-xl">
+        <div className="absolute bottom-24 left-1/2 z-[500] w-[90%] max-w-sm -translate-x-1/2 rounded-xl bg-white p-3 text-center shadow-xl">
           <p className="mb-2 text-sm">
             No hay circuitos a menos de {Math.round(radiusM / 1000)} km de{' '}
             <strong>{place.name}</strong>.
@@ -276,9 +284,10 @@ export function MapPage() {
             <button
               onClick={() => {
                 setRadiusM(WIDE_RADIUS_M);
-                mapRef.current?.fitBounds(boundsAround(place.lonLat, WIDE_RADIUS_M), {
-                  padding: FIT_PADDING,
-                });
+                mapRef.current?.fitBounds(
+                  latLngBoundsAround(place.lonLat, WIDE_RADIUS_M),
+                  FIT_OPTIONS,
+                );
               }}
               className="min-h-11 w-full rounded-lg bg-brand-600 px-3 font-semibold text-white"
             >
@@ -300,7 +309,7 @@ export function MapPage() {
         <div
           role="dialog"
           aria-label={selected.name}
-          className="absolute right-0 bottom-0 left-0 z-10 mx-auto max-w-xl rounded-t-2xl bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(0,0,0,0.15)]"
+          className="absolute right-0 bottom-0 left-0 z-[600] mx-auto max-w-xl rounded-t-2xl bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(0,0,0,0.15)]"
         >
           <div className="mb-2 flex items-start justify-between gap-2">
             <div>

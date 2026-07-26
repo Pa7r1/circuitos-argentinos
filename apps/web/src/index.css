@@ -1,5 +1,4 @@
 @import 'tailwindcss';
-@import 'maplibre-gl/dist/maplibre-gl.css';
 
 @theme {
   --color-brand-50: #fff7ed;
@@ -32,6 +31,6 @@ body {
 }
 
 /* los links de atribución se distinguen por subrayado, no solo por color */
-.maplibregl-ctrl-attrib a {
+.leaflet-container .leaflet-control-attribution a {
   text-decoration: underline;
 }

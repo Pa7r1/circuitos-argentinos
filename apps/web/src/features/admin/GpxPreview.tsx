@@ -1,7 +1,6 @@
 import { gpx } from '@tmcw/togeojson';
 import { useEffect, useRef, useState } from 'react';
-import { MAP_STYLE } from '../../lib/map-style';
-import { useMaplibre } from '../../lib/use-maplibre';
+import { createBaseLayers, MAP_OPTIONS, useLeaflet } from '../../lib/use-leaflet';
 
 /** Extrae las coordenadas del GPX en el navegador para previsualizar antes de subir. */
 export function parseGpxCoordinates(xml: string): [number, number][] {
@@ -21,45 +20,29 @@ export function parseGpxCoordinates(xml: string): [number, number][] {
 export function GpxPreview({ coordinates }: { coordinates: [number, number][] }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState(false);
-  const gl = useMaplibre();
+  const L = useLeaflet();
 
   useEffect(() => {
-    if (!gl) return;
+    if (!L) return;
     if (coordinates.length < 2) {
       setError(true);
       return;
     }
     setError(false);
-    const bounds = coordinates.reduce(
-      (b, c) => b.extend(c),
-      new gl.LngLatBounds(coordinates[0]!, coordinates[0]!),
-    );
-    const map = new gl.Map({
-      container: containerRef.current!,
-      style: MAP_STYLE,
-      bounds,
-      fitBoundsOptions: { padding: 30 },
-      interactive: false,
-      attributionControl: { compact: true },
+    const latLngs = coordinates.map((c) => [c[1], c[0]] as [number, number]);
+    const map = L.map(containerRef.current!, {
+      ...MAP_OPTIONS,
+      dragging: false,
+      scrollWheelZoom: false,
+      doubleClickZoom: false,
     });
-    map.on('load', () => {
-      map.addSource('preview', {
-        type: 'geojson',
-        data: {
-          type: 'Feature',
-          properties: {},
-          geometry: { type: 'LineString', coordinates },
-        },
-      });
-      map.addLayer({
-        id: 'preview-line',
-        type: 'line',
-        source: 'preview',
-        paint: { 'line-color': '#ea580c', 'line-width': 3 },
-      });
-    });
-    return () => map.remove();
-  }, [coordinates, gl]);
+    createBaseLayers(L, map, 'satelite');
+    L.polyline(latLngs, { color: '#ea580c', weight: 3 }).addTo(map);
+    map.fitBounds(L.latLngBounds(latLngs), { padding: [20, 20] });
+    return () => {
+      map.remove();
+    };
+  }, [coordinates, L]);
 
   if (error) {
     return (
@@ -68,5 +51,11 @@ export function GpxPreview({ coordinates }: { coordinates: [number, number][] })
       </p>
     );
   }
-  return <div ref={containerRef} className="h-48 w-full rounded-lg" aria-label="Vista previa del trazado" />;
+  return (
+    <div
+      ref={containerRef}
+      className="h-48 w-full rounded-lg bg-stone-300"
+      aria-label="Vista previa del trazado"
+    />
+  );
 }
