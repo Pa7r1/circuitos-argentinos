@@ -43,7 +43,16 @@ export async function buildApp(config: Config, db: Db): Promise<FastifyInstance>
   app.setSerializerCompiler(serializerCompiler);
   app.setErrorHandler(errorHandler);
 
-  await app.register(cors, { origin: config.CORS_ORIGIN });
+  // La lista de métodos va explícita: el default de @fastify/cors es GET/HEAD/POST,
+  // así que el navegador bloqueaba PATCH y DELETE en el preflight y el panel de
+  // administración no podía publicar ni archivar cuando la web vive en otro
+  // dominio que la API (en desarrollo no se nota, el proxy de vite evita el CORS).
+  await app.register(cors, {
+    origin: config.CORS_ORIGIN,
+    methods: ['GET', 'HEAD', 'POST', 'PATCH', 'DELETE'],
+    allowedHeaders: ['content-type', 'authorization'],
+    maxAge: 86_400,
+  });
   await app.register(jwt, { secret: config.JWT_SECRET });
   await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
   await app.register(multipart, {

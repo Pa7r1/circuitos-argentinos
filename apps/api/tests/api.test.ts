@@ -108,6 +108,31 @@ describe('health y públicos', () => {
     expect(res.statusCode).toBe(400);
   });
 
+  /**
+   * Con la web y la API en dominios distintos, el navegador pide permiso antes de
+   * cada PATCH o DELETE. El default de @fastify/cors solo habilita GET/HEAD/POST:
+   * publicar y archivar morían en el preflight, sin llegar nunca al servidor.
+   */
+  it('el preflight de CORS habilita PATCH y DELETE para el panel', async () => {
+    const res = await app.inject({
+      method: 'OPTIONS',
+      url: '/api/v1/admin/circuits/00000000-0000-0000-0000-000000000000',
+      headers: {
+        origin: 'http://localhost:5173',
+        'access-control-request-method': 'PATCH',
+        'access-control-request-headers': 'authorization,content-type',
+      },
+    });
+    expect(res.statusCode).toBe(204);
+    expect(res.headers['access-control-allow-origin']).toBe('http://localhost:5173');
+    const metodos = String(res.headers['access-control-allow-methods']);
+    expect(metodos).toContain('PATCH');
+    expect(metodos).toContain('DELETE');
+    expect(String(res.headers['access-control-allow-headers']).toLowerCase()).toContain(
+      'authorization',
+    );
+  });
+
   it('GET /circuits/:slug devuelve la ficha completa con track', async () => {
     const res = await app.inject({
       method: 'GET',
