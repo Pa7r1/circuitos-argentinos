@@ -8,8 +8,10 @@ const envSchema = z.object({
   ADMIN_USER: z.string().min(1),
   ADMIN_PASSWORD_HASH: z.string().startsWith('$2', 'debe ser un hash bcrypt'),
   JWT_SECRET: z.string().min(32, 'mínimo 32 caracteres'),
-  GPX_DIR: z.string().default('/data/gpx'),
-  MEDIA_DIR: z.string().default('/data/media'),
+  // relativos al cwd para que la API también corra fuera de docker;
+  // el compose los sobrescribe con /data/gpx y /data/media (volúmenes)
+  GPX_DIR: z.string().default('./data/gpx'),
+  MEDIA_DIR: z.string().default('./data/media'),
 });
 
 export type Config = z.infer<typeof envSchema>;

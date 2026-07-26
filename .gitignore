@@ -10,7 +10,7 @@ build/
 !.env.example
 
 # datos locales
-/data/
+data/
 backups/
 coverage/
 

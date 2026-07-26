@@ -9,7 +9,7 @@
   },
   "packageManager": "pnpm@10.17.1",
   "scripts": {
-    "dev": "docker compose up -d db && pnpm -r --parallel dev",
+    "dev": "docker compose up -d && pnpm --filter web dev",
     "test": "pnpm -r test",
     "lint": "eslint .",
     "format": "prettier --write .",

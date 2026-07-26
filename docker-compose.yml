@@ -21,10 +21,9 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
       target: dev
-    # format raw: sin interpolación (los hash bcrypt llevan '$')
-    env_file:
-      - path: .env
-        format: raw
+    # el hash bcrypt va entre comillas simples en .env: dotenv lo toma literal
+    # y compose no intenta interpolar sus '$'
+    env_file: .env
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       GPX_DIR: /data/gpx
