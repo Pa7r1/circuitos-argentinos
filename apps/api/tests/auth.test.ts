@@ -34,7 +34,7 @@ beforeAll(async () => {
     NODE_ENV: 'test',
     DATABASE_URL: testUrl,
     PORT: 0,
-    CORS_ORIGIN: 'http://localhost:5173',
+    CORS_ORIGIN: ['http://localhost:5173'],
     ADMIN_USER: 'admin',
     ADMIN_PASSWORD_HASH: bcrypt.hashSync(ADMIN_PASSWORD, 4),
     JWT_SECRET: 'secreto-de-test-suficientemente-largo-1234',

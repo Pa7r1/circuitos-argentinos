@@ -46,8 +46,7 @@ export async function buildApp(config: Config, db: Db): Promise<FastifyInstance>
   app.setSerializerCompiler(serializerCompiler);
   app.setErrorHandler(errorHandler);
 
-  // CORS_ORIGIN admite varios orígenes separados por coma (ej: dominio + localhost)
-  await app.register(cors, { origin: config.CORS_ORIGIN.split(',') });
+  await app.register(cors, { origin: config.CORS_ORIGIN });
   await app.register(jwt, { secret: config.JWT_SECRET });
   await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
   await app.register(multipart, {

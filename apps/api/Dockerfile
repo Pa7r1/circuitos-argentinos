@@ -30,6 +30,10 @@ WORKDIR /app
 COPY --from=build --chown=node:node /app/apps/api/dist ./dist
 # el migrador lee los .sql desde disco, junto al bundle
 COPY --from=build --chown=node:node /app/apps/api/src/db/migrations ./dist/migrations
+# el proceso corre como `node` y /app es de root: los directorios de datos se
+# crean acá con su dueño, si no la API no arranca. En docker-compose estos
+# directorios quedan tapados por los volúmenes /data/gpx y /data/media.
+RUN mkdir -p /app/data/gpx /app/data/media && chown -R node:node /app/data
 USER node
 EXPOSE 3000
 CMD ["node", "dist/server.js"]
