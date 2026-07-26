@@ -177,6 +177,34 @@ describe('separación de permisos', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({ published: 1, users: 1 });
   });
+
+  // Es la forma en que entra el administrador real: una cuenta común de la base con
+  // rol admin, con el mismo login que cualquier usuario. La puerta por variables de
+  // entorno queda solo como rescate.
+  it('una cuenta de la base con rol admin entra al panel con el login normal', async () => {
+    const email = 'jefa@ejemplo.com';
+    await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/register',
+      payload: { name: 'Jefa', email, password: USER_PASSWORD },
+    });
+    await client.unsafe(`UPDATE users SET role = 'admin' WHERE email = '${email}'`);
+
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: { email, password: USER_PASSWORD },
+    });
+    const sesion = login.json<AuthResponse>();
+    expect(sesion.user.role).toBe('admin');
+
+    const panel = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/circuits',
+      headers: { authorization: `Bearer ${sesion.token}` },
+    });
+    expect(panel.statusCode).toBe(200);
+  });
 });
 
 describe('peaje de registro en la ficha', () => {

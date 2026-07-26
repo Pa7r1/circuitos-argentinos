@@ -1,7 +1,6 @@
 import type {
   AdminCircuitDetail,
   AdminCircuitListItem,
-  AdminLoginRequest,
   ApiError,
   AuthResponse,
   AuthUser,
@@ -10,7 +9,6 @@ import type {
   CircuitSummary,
   CircuitUpdateBody,
   LoginRequest,
-  LoginResponse,
   RegisterRequest,
 } from '@circuitos/shared';
 import { clearSession, getToken } from './session';
@@ -91,10 +89,6 @@ export const api = {
 
   login(body: LoginRequest): Promise<AuthResponse> {
     return post('/auth/login', body);
-  },
-
-  adminLogin(body: AdminLoginRequest): Promise<LoginResponse> {
-    return post('/auth/admin/login', body);
   },
 
   me(): Promise<AuthUser> {

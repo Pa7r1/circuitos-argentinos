@@ -19,18 +19,20 @@ const STATUS_STYLE: Record<CircuitStatus, string> = {
 
 const FILTROS: (CircuitStatus | 'todos')[] = ['todos', 'published', 'draft', 'archived'];
 
+/**
+ * Ingreso al panel con la misma credencial que el resto de la app: una sola cuenta
+ * para todo. El permiso lo da el rol de administrador de la cuenta, no una puerta
+ * aparte.
+ */
 function LoginForm() {
-  const [user, setUser] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const toast = useToast();
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const { token } = await api.adminLogin({ user, password });
-      setSession({
-        token,
-        user: { id: user, name: user, email: '', role: 'admin', discipline: null },
-      });
+      const { token, user } = await api.login({ email, password });
+      setSession({ token, user });
     },
     onError: (error) => {
       toast(error instanceof RequestError ? error.message : 'No se pudo iniciar sesión');
@@ -48,15 +50,16 @@ function LoginForm() {
         }}
       >
         <div>
-          <label htmlFor="user" className="mb-1 block text-sm font-medium">
-            Usuario
+          <label htmlFor="email" className="mb-1 block text-sm font-medium">
+            Email
           </label>
           <input
-            id="user"
+            id="email"
+            type="email"
             required
-            autoComplete="username"
-            value={user}
-            onChange={(e) => setUser(e.target.value)}
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             className="w-full rounded-lg border border-stone-300 px-3 py-2.5"
           />
         </div>
@@ -85,6 +88,30 @@ function LoginForm() {
           Volver al mapa
         </Link>
       </form>
+    </main>
+  );
+}
+
+/**
+ * Sesión válida pero sin permisos. Antes esto devolvía el formulario de ingreso otra
+ * vez, y parecía que la contraseña estaba mal.
+ */
+function SinPermisos({ nombre }: { nombre: string }) {
+  return (
+    <main className="mx-auto flex min-h-full max-w-sm flex-col justify-center p-6 text-center">
+      <h1 className="mb-2 text-2xl font-bold">No tenés acceso al panel</h1>
+      <p className="mb-6 text-stone-600">
+        Entraste como <strong>{nombre}</strong>, una cuenta sin permisos de administración.
+      </p>
+      <button
+        onClick={() => clearSession()}
+        className="min-h-11 w-full rounded-lg bg-brand-600 py-3 font-semibold text-white hover:bg-brand-700"
+      >
+        Entrar con otra cuenta
+      </button>
+      <Link to="/" className="block py-3 text-sm font-medium text-brand-700">
+        Volver al mapa
+      </Link>
     </main>
   );
 }
@@ -145,7 +172,8 @@ export function AdminPage() {
     onError: (e) => toast(e instanceof RequestError ? e.message : 'No se pudo actualizar'),
   });
 
-  if (!esAdmin) return <LoginForm />;
+  if (!session) return <LoginForm />;
+  if (!esAdmin) return <SinPermisos nombre={session.user.name} />;
 
   if (isError && error instanceof RequestError && [401, 403].includes(error.statusCode)) {
     clearSession();
