@@ -1,5 +1,5 @@
 import { sql, type SQL } from 'drizzle-orm';
-import type { AdminCircuitListItem, ScheduleInput } from '@circuitos/shared';
+import type { AdminCircuitDetail, AdminCircuitListItem, ScheduleInput } from '@circuitos/shared';
 import type { Db } from '../../db/index.js';
 
 export interface CircuitInsert {
@@ -77,6 +77,52 @@ export function adminRepository(db: Db) {
         sql`SELECT id, slug, status FROM circuits WHERE id = ${id}`,
       )) as unknown as { id: string; slug: string; status: string }[];
       return rows[0] ?? null;
+    },
+
+    async fullById(id: string): Promise<AdminCircuitDetail | null> {
+      const rows = (await db.execute(sql`
+        SELECT c.id, c.slug, c.name, c.description, d.slug AS discipline, p.slug AS province,
+               c.locality, c.difficulty, c.access_type, c.access_notes, c.status,
+               c.distance_m, c.elevation_gain_m
+        FROM circuits c
+        JOIN disciplines d ON d.id = c.discipline_id
+        JOIN provinces p ON p.id = c.province_id
+        WHERE c.id = ${id}
+      `)) as unknown as Record<string, unknown>[];
+      const row = rows[0];
+      if (!row) return null;
+
+      const schedules = (await db.execute(sql`
+        SELECT day_of_week, opens, closes, note FROM circuit_schedules
+        WHERE circuit_id = ${id} ORDER BY day_of_week ASC
+      `)) as unknown as { day_of_week: number; opens: string | null; closes: string | null; note: string | null }[];
+      const media = (await db.execute(sql`
+        SELECT url, kind, position FROM circuit_media
+        WHERE circuit_id = ${id} ORDER BY position ASC
+      `)) as unknown as { url: string; kind: 'photo' | 'video'; position: number }[];
+
+      return {
+        id: row.id as string,
+        slug: row.slug as string,
+        name: row.name as string,
+        description: row.description as string | null,
+        discipline: row.discipline as string,
+        province: row.province as string,
+        locality: row.locality as string | null,
+        difficulty: row.difficulty as AdminCircuitDetail['difficulty'],
+        accessType: row.access_type as AdminCircuitDetail['accessType'],
+        accessNotes: row.access_notes as string | null,
+        status: row.status as AdminCircuitDetail['status'],
+        distanceM: row.distance_m as number,
+        elevationGainM: row.elevation_gain_m as number | null,
+        schedules: schedules.map((s) => ({
+          dayOfWeek: s.day_of_week,
+          opens: s.opens?.slice(0, 5) ?? null,
+          closes: s.closes?.slice(0, 5) ?? null,
+          note: s.note,
+        })),
+        media,
+      };
     },
 
     async listAll(): Promise<AdminCircuitListItem[]> {

@@ -1,40 +1,8 @@
 import { sql } from 'drizzle-orm';
 import { fileURLToPath } from 'node:url';
 import { createDb } from './index.js';
+import { DISCIPLINES, PROVINCES } from '@circuitos/shared';
 import { disciplines, provinces } from './schema.js';
-
-const DISCIPLINES = [
-  { slug: 'enduro', name: 'Enduro' },
-  { slug: 'motocross', name: 'Motocross' },
-  { slug: 'mtb', name: 'MTB' },
-];
-
-const PROVINCES = [
-  { slug: 'buenos-aires', name: 'Buenos Aires' },
-  { slug: 'caba', name: 'Ciudad Autónoma de Buenos Aires' },
-  { slug: 'catamarca', name: 'Catamarca' },
-  { slug: 'chaco', name: 'Chaco' },
-  { slug: 'chubut', name: 'Chubut' },
-  { slug: 'cordoba', name: 'Córdoba' },
-  { slug: 'corrientes', name: 'Corrientes' },
-  { slug: 'entre-rios', name: 'Entre Ríos' },
-  { slug: 'formosa', name: 'Formosa' },
-  { slug: 'jujuy', name: 'Jujuy' },
-  { slug: 'la-pampa', name: 'La Pampa' },
-  { slug: 'la-rioja', name: 'La Rioja' },
-  { slug: 'mendoza', name: 'Mendoza' },
-  { slug: 'misiones', name: 'Misiones' },
-  { slug: 'neuquen', name: 'Neuquén' },
-  { slug: 'rio-negro', name: 'Río Negro' },
-  { slug: 'salta', name: 'Salta' },
-  { slug: 'san-juan', name: 'San Juan' },
-  { slug: 'san-luis', name: 'San Luis' },
-  { slug: 'santa-cruz', name: 'Santa Cruz' },
-  { slug: 'santa-fe', name: 'Santa Fe' },
-  { slug: 'santiago-del-estero', name: 'Santiago del Estero' },
-  { slug: 'tierra-del-fuego', name: 'Tierra del Fuego' },
-  { slug: 'tucuman', name: 'Tucumán' },
-];
 
 // Trazado de ejemplo: ~20 puntos alrededor de La Rioja capital (-29.41, -66.85)
 // para desarrollar el frontend sin datos reales.
@@ -55,8 +23,8 @@ function sampleTrackWkt(): { track: string; start: string } {
 export async function runSeed(url: string): Promise<void> {
   const { db, client } = createDb(url);
   try {
-    await db.insert(disciplines).values(DISCIPLINES).onConflictDoNothing();
-    await db.insert(provinces).values(PROVINCES).onConflictDoNothing();
+    await db.insert(disciplines).values(DISCIPLINES.map((d) => ({ ...d }))).onConflictDoNothing();
+    await db.insert(provinces).values(PROVINCES.map((p) => ({ ...p }))).onConflictDoNothing();
 
     const { track, start } = sampleTrackWkt();
     await db.execute(sql`

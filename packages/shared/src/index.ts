@@ -21,6 +21,40 @@ export type AccessType = (typeof ACCESS_TYPES)[number];
 export const CIRCUIT_STATUSES = ['draft', 'published', 'archived'] as const;
 export type CircuitStatus = (typeof CIRCUIT_STATUSES)[number];
 
+// --- Catálogos fijos (fuente única para seed de la API y selects del frontend) ---
+export const DISCIPLINES = [
+  { slug: 'enduro', name: 'Enduro' },
+  { slug: 'motocross', name: 'Motocross' },
+  { slug: 'mtb', name: 'MTB' },
+] as const;
+
+export const PROVINCES = [
+  { slug: 'buenos-aires', name: 'Buenos Aires' },
+  { slug: 'caba', name: 'Ciudad Autónoma de Buenos Aires' },
+  { slug: 'catamarca', name: 'Catamarca' },
+  { slug: 'chaco', name: 'Chaco' },
+  { slug: 'chubut', name: 'Chubut' },
+  { slug: 'cordoba', name: 'Córdoba' },
+  { slug: 'corrientes', name: 'Corrientes' },
+  { slug: 'entre-rios', name: 'Entre Ríos' },
+  { slug: 'formosa', name: 'Formosa' },
+  { slug: 'jujuy', name: 'Jujuy' },
+  { slug: 'la-pampa', name: 'La Pampa' },
+  { slug: 'la-rioja', name: 'La Rioja' },
+  { slug: 'mendoza', name: 'Mendoza' },
+  { slug: 'misiones', name: 'Misiones' },
+  { slug: 'neuquen', name: 'Neuquén' },
+  { slug: 'rio-negro', name: 'Río Negro' },
+  { slug: 'salta', name: 'Salta' },
+  { slug: 'san-juan', name: 'San Juan' },
+  { slug: 'san-luis', name: 'San Luis' },
+  { slug: 'santa-cruz', name: 'Santa Cruz' },
+  { slug: 'santa-fe', name: 'Santa Fe' },
+  { slug: 'santiago-del-estero', name: 'Santiago del Estero' },
+  { slug: 'tierra-del-fuego', name: 'Tierra del Fuego' },
+  { slug: 'tucuman', name: 'Tucumán' },
+] as const;
+
 // --- Auth ---
 export interface LoginRequest {
   user: string;
@@ -97,6 +131,25 @@ export interface AdminCircuitListItem {
   distanceM: number;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Ficha completa para el formulario de edición del admin */
+export interface AdminCircuitDetail {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  discipline: string;
+  province: string;
+  locality: string | null;
+  difficulty: Difficulty;
+  accessType: AccessType;
+  accessNotes: string | null;
+  status: CircuitStatus;
+  distanceM: number;
+  elevationGainM: number | null;
+  schedules: CircuitSchedule[];
+  media: CircuitMedia[];
 }
 
 export interface ScheduleInput {

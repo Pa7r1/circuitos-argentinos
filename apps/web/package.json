@@ -4,12 +4,28 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "echo \"pendiente etapa de frontend\" && exit 0",
-    "build": "echo \"pendiente etapa de frontend\" && exit 0",
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"sin tests\" && exit 0"
+    "test": "echo \"sin tests\" && exit 0",
+    "preview": "vite preview"
   },
   "dependencies": {
-    "@circuitos/shared": "workspace:*"
+    "@circuitos/shared": "workspace:*",
+    "@tanstack/react-query": "^5.101.4",
+    "@tmcw/togeojson": "^7.1.2",
+    "maplibre-gl": "^5.24.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^7.18.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^6.0.4",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.1.5",
+    "vite-plugin-pwa": "^1.3.0"
   }
 }

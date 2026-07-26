@@ -91,6 +91,12 @@ export function adminRoutes(service: AdminService) {
 
     typed.get('/admin/circuits', async () => service.list());
 
+    typed.get(
+      '/admin/circuits/:id',
+      { schema: { params: idParamsSchema } },
+      async (request) => service.detail(request.params.id),
+    );
+
     typed.post('/admin/circuits', async (request, reply) => {
       const { fields, files } = parseMultipartFields(request.body);
       if (!files.gpx) throw badRequest('GPX_FALTANTE', 'Falta el archivo GPX (campo "gpx")');

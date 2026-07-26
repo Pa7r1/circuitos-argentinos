@@ -52,6 +52,12 @@ export function adminService(config: Config, repo: AdminRepository) {
       return repo.listAll();
     },
 
+    async detail(id: string) {
+      const circuit = await repo.fullById(id);
+      if (!circuit) throw notFound('Circuito no encontrado');
+      return circuit;
+    },
+
     async create(fields: CircuitCreateFields, gpxBuffer: Buffer): Promise<{ id: string; slug: string }> {
       const { disciplineId, provinceId } = await resolveRefs(fields.discipline, fields.province);
       const track = processGpx(gpxBuffer.toString('utf8'));
