@@ -1,0 +1,13 @@
+node_modules
+**/node_modules
+**/dist
+.git
+.env
+.env.*
+data
+coverage
+.claude
+MEMORY.md
+CLAUDE.md
+PROMT-*.md
+ESTRUCTURA.md

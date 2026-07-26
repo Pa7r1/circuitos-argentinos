@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "tsup src/server.ts --format esm --target node22 --clean",
     "typecheck": "tsc --noEmit",
     "test": "echo \"sin tests\" && exit 0",
     "db:migrate": "echo \"pendiente etapa 2\" && exit 0",
@@ -16,6 +16,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.7.0",
+    "tsup": "^8.3.0",
     "tsx": "^4.19.1"
   }
 }
