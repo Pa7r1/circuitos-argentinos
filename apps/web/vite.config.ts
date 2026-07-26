@@ -32,5 +32,24 @@ export default defineConfig({
       },
     }),
   ],
-  server: { port: 5173 },
+  // mismo proxy para `vite preview`, así el build también se prueba local
+  preview: {
+    port: 4173,
+    proxy: {
+      '/api': 'http://localhost:3000',
+      '/media': 'http://localhost:3000',
+    },
+    allowedHosts: ['.trycloudflare.com', '.ngrok-free.app'],
+  },
+  server: {
+    port: 5173,
+    // mismo origen para web y API en desarrollo: sin CORS y alcanza un solo
+    // túnel HTTPS para probar en el teléfono
+    proxy: {
+      '/api': 'http://localhost:3000',
+      '/media': 'http://localhost:3000',
+    },
+    // los túneles de prueba sirven la app desde un host aleatorio
+    allowedHosts: ['.trycloudflare.com', '.ngrok-free.app'],
+  },
 });

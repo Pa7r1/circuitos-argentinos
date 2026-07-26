@@ -30,3 +30,8 @@ body {
   @apply rounded bg-stone-200;
   animation: pulse-soft 1.5s ease-in-out infinite;
 }
+
+/* los links de atribución se distinguen por subrayado, no solo por color */
+.maplibregl-ctrl-attrib a {
+  text-decoration: underline;
+}

@@ -1,5 +1,5 @@
-import * as maplibregl from 'maplibre-gl';
-import { useEffect, useRef } from 'react';
+import type maplibregl from 'maplibre-gl';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import type { CircuitDetail } from '@circuitos/shared';
 import { DISCIPLINES } from '@circuitos/shared';
@@ -11,25 +11,39 @@ import {
   formatKm,
 } from '../../lib/format';
 import { API_URL } from '../../lib/api';
-import { OSM_STYLE } from '../../lib/map-style';
+import { MapLayerToggle } from '../../components/MapLayerToggle';
+import { applyMapLayer, MAP_STYLE, type MapLayer } from '../../lib/map-style';
 import { useCircuitDetail } from '../../lib/queries';
+import { useMaplibre } from '../../lib/use-maplibre';
 
 function TrackMap({ circuit }: { circuit: CircuitDetail }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const [layer, setLayer] = useState<MapLayer>('satelite');
+  const gl = useMaplibre();
 
   useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (map.isStyleLoaded()) applyMapLayer(map, layer);
+    else map.once('load', () => applyMapLayer(map, layer));
+  }, [layer, gl]);
+
+  useEffect(() => {
+    if (!gl) return;
     const coords = circuit.track.coordinates;
     const bounds = coords.reduce(
       (b, c) => b.extend([c[0], c[1]]),
-      new maplibregl.LngLatBounds([coords[0]![0], coords[0]![1]], [coords[0]![0], coords[0]![1]]),
+      new gl.LngLatBounds([coords[0]![0], coords[0]![1]], [coords[0]![0], coords[0]![1]]),
     );
-    const map = new maplibregl.Map({
+    const map = new gl.Map({
       container: containerRef.current!,
-      style: OSM_STYLE,
+      style: MAP_STYLE,
       bounds,
       fitBoundsOptions: { padding: 40 },
       attributionControl: { compact: true },
     });
+    mapRef.current = map;
     map.on('load', () => {
       map.addSource('track', {
         type: 'geojson',
@@ -51,19 +65,25 @@ function TrackMap({ circuit }: { circuit: CircuitDetail }) {
       });
       const start = document.createElement('div');
       start.className = 'h-4 w-4 rounded-full border-2 border-white bg-green-600 shadow';
-      new maplibregl.Marker({ element: start })
+      new gl.Marker({ element: start })
         .setLngLat([circuit.startPoint.coordinates[0], circuit.startPoint.coordinates[1]])
         .addTo(map);
     });
-    return () => map.remove();
-  }, [circuit]);
+    return () => {
+      map.remove();
+      mapRef.current = null;
+    };
+  }, [circuit, gl]);
 
   return (
-    <div
-      ref={containerRef}
-      className="h-64 w-full sm:h-80"
-      aria-label={`Trazado del circuito ${circuit.name}`}
-    />
+    <div className="relative">
+      <div
+        ref={containerRef}
+        className="h-64 w-full sm:h-80"
+        aria-label={`Trazado del circuito ${circuit.name}`}
+      />
+      <MapLayerToggle layer={layer} onChange={setLayer} className="absolute bottom-3 left-3" />
+    </div>
   );
 }
 

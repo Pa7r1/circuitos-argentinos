@@ -11,7 +11,8 @@ import type {
 } from '@circuitos/shared';
 import { getToken, clearToken } from './auth';
 
-export const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
+/** Vacío = mismo origen (el proxy de vite en dev, o el reverse proxy en prod). */
+export const API_URL: string = import.meta.env.VITE_API_URL ?? '';
 
 export class RequestError extends Error {
   constructor(

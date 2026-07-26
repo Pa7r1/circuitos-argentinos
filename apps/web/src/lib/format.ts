@@ -7,11 +7,28 @@ export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   extremo: 'Extremo',
 };
 
-export const DIFFICULTY_COLOR: Record<Difficulty, string> = {
-  facil: '#16a34a',
-  intermedio: '#eab308',
-  dificil: '#ea580c',
-  extremo: '#b91c1c',
+/** Color de cada disciplina: identifica el pin en el mapa y su chip de filtro. */
+export const DISCIPLINE_COLOR: Record<string, string> = {
+  enduro: '#ea580c',
+  motocross: '#2563eb',
+  mtb: '#7c3aed',
+};
+
+/**
+ * Variante oscura para fondos con texto blanco: el naranja del pin no llega al
+ * contraste AA (3,4:1) sobre blanco, estos tonos sí.
+ */
+export const DISCIPLINE_CHIP_BG: Record<string, string> = {
+  enduro: '#c2410c',
+  motocross: '#1d4ed8',
+  mtb: '#6d28d9',
+};
+
+/** Inicial que va dentro del pin. */
+export const DISCIPLINE_LETTER: Record<string, string> = {
+  enduro: 'E',
+  motocross: 'M',
+  mtb: 'B',
 };
 
 export const DIFFICULTY_BADGE: Record<Difficulty, string> = {

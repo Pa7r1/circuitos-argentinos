@@ -1,7 +1,7 @@
 import { gpx } from '@tmcw/togeojson';
-import * as maplibregl from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'react';
-import { OSM_STYLE } from '../../lib/map-style';
+import { MAP_STYLE } from '../../lib/map-style';
+import { useMaplibre } from '../../lib/use-maplibre';
 
 /** Extrae las coordenadas del GPX en el navegador para previsualizar antes de subir. */
 export function parseGpxCoordinates(xml: string): [number, number][] {
@@ -21,8 +21,10 @@ export function parseGpxCoordinates(xml: string): [number, number][] {
 export function GpxPreview({ coordinates }: { coordinates: [number, number][] }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState(false);
+  const gl = useMaplibre();
 
   useEffect(() => {
+    if (!gl) return;
     if (coordinates.length < 2) {
       setError(true);
       return;
@@ -30,11 +32,11 @@ export function GpxPreview({ coordinates }: { coordinates: [number, number][] })
     setError(false);
     const bounds = coordinates.reduce(
       (b, c) => b.extend(c),
-      new maplibregl.LngLatBounds(coordinates[0]!, coordinates[0]!),
+      new gl.LngLatBounds(coordinates[0]!, coordinates[0]!),
     );
-    const map = new maplibregl.Map({
+    const map = new gl.Map({
       container: containerRef.current!,
-      style: OSM_STYLE,
+      style: MAP_STYLE,
       bounds,
       fitBoundsOptions: { padding: 30 },
       interactive: false,
@@ -57,7 +59,7 @@ export function GpxPreview({ coordinates }: { coordinates: [number, number][] })
       });
     });
     return () => map.remove();
-  }, [coordinates]);
+  }, [coordinates, gl]);
 
   if (error) {
     return (
