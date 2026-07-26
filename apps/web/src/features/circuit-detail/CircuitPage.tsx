@@ -10,6 +10,7 @@ import {
   formatKm,
 } from '../../lib/format';
 import { api, API_URL, RequestError } from '../../lib/api';
+import { Button, ButtonLink } from '../../components/Button';
 import { MapLayerToggle } from '../../components/MapLayerToggle';
 import { type MapLayer } from '../../lib/map-style';
 import { useCircuitDetail } from '../../lib/queries';
@@ -89,20 +90,34 @@ function DetailSkeleton({ despertando }: { despertando: boolean }) {
 /** Invitación a registrarse cuando alguien abre el enlace sin cuenta. */
 function Peaje({ onEntrar }: { onEntrar: () => void }) {
   return (
-    <main className="mx-auto flex min-h-full max-w-md flex-col justify-center p-6 text-center">
-      <h1 className="mb-2 text-2xl font-bold">Creá tu cuenta para ver este circuito</h1>
-      <p className="mb-6 text-stone-600">
-        El mapa es libre. Para ver el trazado completo, los accesos, los horarios y descargar el
-        GPX te pedimos una cuenta: así sabemos quién usa la información de los circuitos.
-      </p>
-      <button
-        onClick={onEntrar}
-        className="mb-3 min-h-11 w-full rounded-lg bg-brand-600 py-3 font-semibold text-white hover:bg-brand-700"
+    <main className="mx-auto flex min-h-full max-w-md flex-col justify-center p-6">
+      <div className="tarjeta p-6 text-center">
+        <h1 className="mb-2 text-2xl font-bold">Creá tu cuenta para ver este circuito</h1>
+        <p className="mb-5 text-stone-600">El mapa es libre. Con tu cuenta, además, vas a poder:</p>
+        {/* qué gana la persona, en concreto: el registro se justifica solo */}
+        <ul className="mb-6 space-y-2 text-left text-sm text-stone-700">
+          {[
+            'Ver el trazado completo sobre la foto satelital',
+            'Saber cómo se entra y en qué horarios',
+            'Descargar el GPX para tu GPS, Strava o Wikiloc',
+          ].map((texto) => (
+            <li key={texto} className="flex gap-2">
+              <span aria-hidden="true" className="font-bold text-brand-600">
+                ✓
+              </span>
+              {texto}
+            </li>
+          ))}
+        </ul>
+        <Button variante="primary" tamano="lg" ancho onClick={onEntrar}>
+          Crear cuenta o ingresar
+        </Button>
+      </div>
+      <Link
+        to="/"
+        className="mt-4 py-2 text-center text-sm font-medium text-stone-600 hover:text-stone-900"
       >
-        Crear cuenta o ingresar
-      </button>
-      <Link to="/" className="min-h-11 font-medium text-brand-700 underline">
-        Volver al mapa
+        ← Volver al mapa
       </Link>
     </main>
   );
@@ -156,56 +171,76 @@ export function CircuitPage() {
 
   return (
     <main className="mx-auto max-w-2xl bg-white pb-8 shadow-sm">
-      <nav className="flex items-center gap-2 p-3">
+      <nav className="sticky top-0 z-10 flex items-center gap-2 border-b border-stone-200 bg-white/95 p-2 backdrop-blur">
         <Link
           to="/"
-          className="flex min-h-11 items-center gap-1 rounded-lg px-2 font-medium text-brand-700"
+          className="flex min-h-11 items-center gap-1 rounded-lg px-3 font-medium text-stone-700 hover:bg-stone-100"
         >
-          ← Mapa
+          <span aria-hidden="true">←</span> Volver al mapa
         </Link>
       </nav>
 
       <TrackMap circuit={circuit} />
 
       <div className="p-4">
-        <h1 className="text-2xl font-bold">{circuit.name}</h1>
-        <p className="mb-3 text-stone-600">
-          {circuit.locality ? `${circuit.locality}, ` : ''}
-          {circuit.provinceName} ·{' '}
-          {DISCIPLINES.find((d) => d.slug === circuit.discipline)?.name}
-        </p>
-
-        <div className="mb-4 flex flex-wrap gap-2 text-sm">
-          <span className={`rounded-full px-3 py-1.5 font-medium ${DIFFICULTY_BADGE[circuit.difficulty]}`}>
-            {DIFFICULTY_LABEL[circuit.difficulty]}
-          </span>
-          <span className="rounded-full bg-stone-100 px-3 py-1.5">
-            {formatKm(circuit.distanceM)}
-          </span>
-          {circuit.elevationGainM !== null && (
-            <span className="rounded-full bg-stone-100 px-3 py-1.5">
-              ↗ {circuit.elevationGainM} m de desnivel
+        <div className="mb-4">
+          <h1 className="text-2xl font-bold text-stone-900">{circuit.name}</h1>
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 text-stone-600">
+            <span>
+              {circuit.locality ? `${circuit.locality}, ` : ''}
+              {circuit.provinceName}
             </span>
-          )}
+            <span aria-hidden="true">·</span>
+            <span>{DISCIPLINES.find((d) => d.slug === circuit.discipline)?.name}</span>
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-sm font-medium ${DIFFICULTY_BADGE[circuit.difficulty]}`}
+            >
+              {DIFFICULTY_LABEL[circuit.difficulty]}
+            </span>
+          </p>
         </div>
 
+        {/* los dos números que definen si el circuito es para vos, grandes y juntos */}
+        <dl className="mb-4 grid grid-cols-2 gap-2">
+          <div className="tarjeta px-4 py-3">
+            <dt className="text-xs font-medium tracking-wide text-stone-500 uppercase">Distancia</dt>
+            <dd className="text-2xl font-bold tabular-nums">{formatKm(circuit.distanceM)}</dd>
+          </div>
+          <div className="tarjeta px-4 py-3">
+            <dt className="text-xs font-medium tracking-wide text-stone-500 uppercase">Desnivel</dt>
+            <dd className="text-2xl font-bold tabular-nums">
+              {circuit.elevationGainM !== null ? `${circuit.elevationGainM} m` : '—'}
+            </dd>
+          </div>
+        </dl>
+
         <div
-          className={`mb-4 rounded-lg p-3 text-sm ${
-            warnAccess ? 'border border-amber-300 bg-amber-50 text-amber-900' : 'bg-stone-50'
+          className={`mb-6 rounded-xl p-3 text-sm ${
+            warnAccess
+              ? 'border border-amber-300 bg-amber-50 text-amber-900'
+              : 'border border-stone-200 bg-stone-50 text-stone-700'
           }`}
         >
-          <p className="font-semibold">{ACCESS_LABEL[circuit.accessType]}</p>
+          <p className="font-semibold">
+            {warnAccess && (
+              <span aria-hidden="true" className="mr-1">
+                ⚠
+              </span>
+            )}
+            {ACCESS_LABEL[circuit.accessType]}
+          </p>
           {circuit.accessNotes && <p className="mt-1">{circuit.accessNotes}</p>}
         </div>
 
         <div className="mb-6 grid gap-2 sm:grid-cols-2">
-          <a
-            href={directionsUrl}
-            className="block min-h-11 rounded-lg bg-brand-600 py-3 text-center font-semibold text-white hover:bg-brand-700"
-          >
+          {/* una sola acción primaria: llegar. Bajar el GPX es para después */}
+          <ButtonLink to={directionsUrl} variante="primary" tamano="lg" ancho>
             Cómo llegar
-          </a>
-          <button
+          </ButtonLink>
+          <Button
+            variante="secondary"
+            tamano="lg"
+            ancho
             onClick={async () => {
               try {
                 const blob = await api.downloadGpx(circuit.slug);
@@ -219,10 +254,9 @@ export function CircuitPage() {
                 toast('Este circuito todavía no tiene archivo GPX para descargar.');
               }
             }}
-            className="block min-h-11 rounded-lg border-2 border-brand-600 py-3 text-center font-semibold text-brand-700 hover:bg-brand-50"
           >
             Descargar GPX
-          </button>
+          </Button>
           <p className="text-xs text-stone-500 sm:col-span-2">
             El GPX se abre en Strava, Relive, Wikiloc o tu GPS.
           </p>

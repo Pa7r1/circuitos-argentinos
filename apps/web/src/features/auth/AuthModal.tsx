@@ -1,14 +1,13 @@
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { DISCIPLINES } from '@circuitos/shared';
+import { Button } from '../../components/Button';
+import { Field, SelectField } from '../../components/Field';
 import { Modal } from '../../components/Modal';
 import { api, RequestError } from '../../lib/api';
 import { setSession } from '../../lib/session';
 
 type Solapa = 'registro' | 'ingreso';
-
-const inputClass =
-  'w-full rounded-lg border border-stone-300 px-3 py-2.5 text-base focus:border-brand-600 focus:outline-none';
 
 /**
  * Registro e ingreso de usuarios. El registro es el peaje para ver la ficha de
@@ -56,7 +55,11 @@ export function AuthModal({
 
   return (
     <Modal title={esRegistro ? 'Creá tu cuenta' : 'Ingresá a tu cuenta'} onClose={onClose}>
-      {motivo && <p className="mb-3 rounded-lg bg-brand-50 p-3 text-sm text-brand-700">{motivo}</p>}
+      {motivo && (
+        <p className="mb-4 rounded-xl border border-brand-200 bg-brand-50 p-3 text-sm text-brand-900">
+          {motivo}
+        </p>
+      )}
 
       <div className="mb-4 flex gap-1 rounded-lg bg-stone-100 p-1" role="tablist">
         {(
@@ -92,86 +95,58 @@ export function AuthModal({
         }}
       >
         {esRegistro && (
-          <div>
-            <label htmlFor="auth-name" className="mb-1 block text-sm font-medium">
-              Nombre y apellido
-            </label>
-            <input
-              id="auth-name"
-              required
-              autoComplete="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className={inputClass}
-            />
-          </div>
+          <Field
+            label="Nombre y apellido"
+            id="auth-name"
+            required
+            autoComplete="name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
         )}
 
-        <div>
-          <label htmlFor="auth-email" className="mb-1 block text-sm font-medium">
-            Email
-          </label>
-          <input
-            id="auth-email"
-            type="email"
-            required
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={inputClass}
-          />
-        </div>
+        <Field
+          label="Email"
+          id="auth-email"
+          type="email"
+          required
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
 
-        <div>
-          <label htmlFor="auth-password" className="mb-1 block text-sm font-medium">
-            Contraseña
-          </label>
-          <input
-            id="auth-password"
-            type="password"
-            required
-            minLength={esRegistro ? 8 : undefined}
-            autoComplete={esRegistro ? 'new-password' : 'current-password'}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={inputClass}
-          />
-          {esRegistro && <p className="mt-1 text-xs text-stone-500">Mínimo 8 caracteres.</p>}
-        </div>
+        <Field
+          label="Contraseña"
+          id="auth-password"
+          type="password"
+          required
+          minLength={esRegistro ? 8 : undefined}
+          autoComplete={esRegistro ? 'new-password' : 'current-password'}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          ayuda={esRegistro ? 'Mínimo 8 caracteres.' : undefined}
+          // el error del servidor es casi siempre de credenciales: va acá
+          error={error ?? undefined}
+        />
 
         {esRegistro && (
-          <div>
-            <label htmlFor="auth-discipline" className="mb-1 block text-sm font-medium">
-              ¿Qué practicás?
-            </label>
-            <select
-              id="auth-discipline"
-              value={discipline}
-              onChange={(e) => setDiscipline(e.target.value)}
-              className={inputClass}
-            >
-              {DISCIPLINES.map((d) => (
-                <option key={d.slug} value={d.slug}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <SelectField
+            label="¿Qué practicás?"
+            id="auth-discipline"
+            value={discipline}
+            onChange={(e) => setDiscipline(e.target.value)}
+          >
+            {DISCIPLINES.map((d) => (
+              <option key={d.slug} value={d.slug}>
+                {d.name}
+              </option>
+            ))}
+          </SelectField>
         )}
 
-        {error && (
-          <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">
-            {error}
-          </p>
-        )}
-
-        <button
-          type="submit"
-          disabled={mutation.isPending}
-          className="min-h-11 w-full rounded-lg bg-brand-600 py-3 font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
-        >
+        <Button type="submit" variante="primary" tamano="lg" ancho disabled={mutation.isPending}>
           {mutation.isPending ? 'Un momento…' : esRegistro ? 'Crear cuenta' : 'Ingresar'}
-        </button>
+        </Button>
 
         {esRegistro && (
           <p className="text-center text-xs text-stone-500">

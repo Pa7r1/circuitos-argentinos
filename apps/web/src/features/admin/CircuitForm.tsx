@@ -2,6 +2,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { AdminCircuitDetail, ScheduleInput } from '@circuitos/shared';
 import { ACCESS_TYPES, DIFFICULTIES, DISCIPLINES, PROVINCES } from '@circuitos/shared';
+import { Button } from '../../components/Button';
+import { Field, SelectField } from '../../components/Field';
 import { useToast } from '../../components/Toast';
 import { api, API_URL, RequestError } from '../../lib/api';
 import { resizeImage } from '../../lib/image';
@@ -15,8 +17,9 @@ interface Props {
   onDone: () => void;
 }
 
-const inputClass =
-  'w-full rounded-lg border border-stone-300 px-3 py-2.5 text-base focus:border-brand-600 focus:outline-none';
+/** Los textarea no pasan por `Field`, pero comparten su aspecto. */
+const textareaClass =
+  'w-full rounded-lg border border-stone-300 px-3 py-2.5 text-base transition-colors focus:border-brand-600 placeholder:text-stone-400';
 
 export function CircuitForm({ editing, onDone }: Props) {
   const queryClient = useQueryClient();
@@ -146,73 +149,74 @@ export function CircuitForm({ editing, onDone }: Props) {
         </div>
       )}
 
-      <div>
-        <label htmlFor="name" className="mb-1 block text-sm font-medium">
-          Nombre *
-        </label>
-        <input id="name" required value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
-      </div>
+      <Field
+        label="Nombre *"
+        id="name"
+        required
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+      />
 
       <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label htmlFor="discipline" className="mb-1 block text-sm font-medium">
-            Disciplina *
-          </label>
-          <select id="discipline" value={discipline} onChange={(e) => setDiscipline(e.target.value)} className={inputClass}>
-            {DISCIPLINES.map((d) => (
-              <option key={d.slug} value={d.slug}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="province" className="mb-1 block text-sm font-medium">
-            Provincia *
-          </label>
-          <select id="province" value={province} onChange={(e) => setProvince(e.target.value)} className={inputClass}>
-            {PROVINCES.map((p) => (
-              <option key={p.slug} value={p.slug}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="difficulty" className="mb-1 block text-sm font-medium">
-            Dificultad *
-          </label>
-          <select id="difficulty" value={difficulty} onChange={(e) => setDifficulty(e.target.value)} className={inputClass}>
-            {DIFFICULTIES.map((d) => (
-              <option key={d} value={d}>
-                {DIFFICULTY_LABEL[d]}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="accessType" className="mb-1 block text-sm font-medium">
-            Acceso *
-          </label>
-          <select id="accessType" value={accessType} onChange={(e) => setAccessType(e.target.value)} className={inputClass}>
-            {ACCESS_TYPES.map((a) => (
-              <option key={a} value={a}>
-                {ACCESS_LABEL[a]}
-              </option>
-            ))}
-          </select>
-        </div>
+        <SelectField
+          label="Disciplina *"
+          id="discipline"
+          value={discipline}
+          onChange={(e) => setDiscipline(e.target.value)}
+        >
+          {DISCIPLINES.map((d) => (
+            <option key={d.slug} value={d.slug}>
+              {d.name}
+            </option>
+          ))}
+        </SelectField>
+        <SelectField
+          label="Provincia *"
+          id="province"
+          value={province}
+          onChange={(e) => setProvince(e.target.value)}
+        >
+          {PROVINCES.map((p) => (
+            <option key={p.slug} value={p.slug}>
+              {p.name}
+            </option>
+          ))}
+        </SelectField>
+        <SelectField
+          label="Dificultad *"
+          id="difficulty"
+          value={difficulty}
+          onChange={(e) => setDifficulty(e.target.value)}
+        >
+          {DIFFICULTIES.map((d) => (
+            <option key={d} value={d}>
+              {DIFFICULTY_LABEL[d]}
+            </option>
+          ))}
+        </SelectField>
+        <SelectField
+          label="Acceso *"
+          id="accessType"
+          value={accessType}
+          onChange={(e) => setAccessType(e.target.value)}
+        >
+          {ACCESS_TYPES.map((a) => (
+            <option key={a} value={a}>
+              {ACCESS_LABEL[a]}
+            </option>
+          ))}
+        </SelectField>
       </div>
 
-      <div>
-        <label htmlFor="locality" className="mb-1 block text-sm font-medium">
-          Localidad
-        </label>
-        <input id="locality" value={locality} onChange={(e) => setLocality(e.target.value)} className={inputClass} />
-      </div>
+      <Field
+        label="Localidad"
+        id="locality"
+        value={locality}
+        onChange={(e) => setLocality(e.target.value)}
+      />
 
       <div>
-        <label htmlFor="accessNotes" className="mb-1 block text-sm font-medium">
+        <label htmlFor="accessNotes" className="mb-1 block text-sm font-medium text-stone-700">
           Notas de acceso
         </label>
         <textarea
@@ -220,13 +224,13 @@ export function CircuitForm({ editing, onDone }: Props) {
           value={accessNotes}
           onChange={(e) => setAccessNotes(e.target.value)}
           rows={2}
-          className={inputClass}
+          className={textareaClass}
           placeholder="Ej: pedir permiso en el club, cuota de mantenimiento…"
         />
       </div>
 
       <div>
-        <label htmlFor="description" className="mb-1 block text-sm font-medium">
+        <label htmlFor="description" className="mb-1 block text-sm font-medium text-stone-700">
           Descripción
         </label>
         <textarea
@@ -234,7 +238,7 @@ export function CircuitForm({ editing, onDone }: Props) {
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={4}
-          className={inputClass}
+          className={textareaClass}
         />
       </div>
 
@@ -268,23 +272,27 @@ export function CircuitForm({ editing, onDone }: Props) {
               onChange={(e) => updateSchedule(i, { closes: e.target.value || null })}
               className="rounded-lg border border-stone-300 px-2 py-2"
             />
-            <button
+            <Button
               type="button"
+              variante="danger"
+              tamano="sm"
               aria-label="Quitar horario"
               onClick={() => setSchedules((prev) => prev.filter((_, j) => j !== i))}
-              className="min-h-11 min-w-11 rounded-lg text-red-700 hover:bg-red-50"
             >
               ✕
-            </button>
+            </Button>
           </div>
         ))}
-        <button
+        <Button
           type="button"
-          onClick={() => setSchedules((prev) => [...prev, { dayOfWeek: 6, opens: null, closes: null }])}
-          className="min-h-11 rounded-lg border border-stone-300 px-3 text-sm font-medium hover:bg-stone-50"
+          variante="secondary"
+          tamano="sm"
+          onClick={() =>
+            setSchedules((prev) => [...prev, { dayOfWeek: 6, opens: null, closes: null }])
+          }
         >
-          + Agregar horario
-        </button>
+          <span aria-hidden="true">+</span> Agregar horario
+        </Button>
       </fieldset>
 
       {editing && editing.media.length > 0 && (
@@ -340,21 +348,20 @@ export function CircuitForm({ editing, onDone }: Props) {
         )}
       </div>
 
-      <div className="flex gap-2">
-        <button
+      {/* pegado abajo: en el alta el formulario es largo y el guardar quedaba lejos */}
+      <div className="sticky bottom-0 -mx-4 flex gap-2 border-t border-stone-200 bg-white px-4 py-3">
+        <Button
           type="submit"
+          variante="primary"
+          tamano="lg"
+          className="flex-1"
           disabled={mutation.isPending}
-          className="min-h-11 flex-1 rounded-lg bg-brand-600 py-3 font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
         >
           {mutation.isPending ? 'Guardando…' : editing ? 'Guardar cambios' : 'Crear borrador'}
-        </button>
-        <button
-          type="button"
-          onClick={onDone}
-          className="min-h-11 rounded-lg border border-stone-300 px-4 font-medium hover:bg-stone-50"
-        >
+        </Button>
+        <Button type="button" variante="secondary" tamano="lg" onClick={onDone}>
           Cancelar
-        </button>
+        </Button>
       </div>
     </form>
   );
