@@ -7,16 +7,21 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsup src/server.ts --format esm --target node22 --clean",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"sin tests\" && exit 0",
-    "db:migrate": "echo \"pendiente etapa 2\" && exit 0",
-    "db:seed": "echo \"pendiente etapa 2\" && exit 0"
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "db:seed": "tsx src/db/seed.ts"
   },
   "dependencies": {
-    "@circuitos/shared": "workspace:*"
+    "@circuitos/shared": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "postgres": "^3.4.9"
   },
   "devDependencies": {
     "@types/node": "^22.7.0",
+    "drizzle-kit": "^0.31.10",
     "tsup": "^8.3.0",
-    "tsx": "^4.19.1"
+    "tsx": "^4.19.1",
+    "vitest": "^4.1.10"
   }
 }
