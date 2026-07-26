@@ -209,6 +209,21 @@ export function adminRepository(db: Db) {
       });
     },
 
+    async counts(): Promise<Record<string, number>> {
+      const rows = (await db.execute(sql`
+        SELECT status, count(*)::int AS total FROM circuits GROUP BY status
+      `)) as unknown as { status: string; total: number }[];
+      return Object.fromEntries(rows.map((r) => [r.status, r.total]));
+    },
+
+    async deleteMedia(circuitId: string, url: string): Promise<boolean> {
+      const rows = (await db.execute(sql`
+        DELETE FROM circuit_media WHERE circuit_id = ${circuitId} AND url = ${url}
+        RETURNING id
+      `)) as unknown as { id: number }[];
+      return rows.length > 0;
+    },
+
     async addMedia(circuitId: string, url: string, kind: string): Promise<void> {
       await db.execute(sql`
         INSERT INTO circuit_media (circuit_id, url, kind, position)

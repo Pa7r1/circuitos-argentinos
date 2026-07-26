@@ -3,7 +3,8 @@ import { useState } from 'react';
 import type { AdminCircuitDetail, ScheduleInput } from '@circuitos/shared';
 import { ACCESS_TYPES, DIFFICULTIES, DISCIPLINES, PROVINCES } from '@circuitos/shared';
 import { useToast } from '../../components/Toast';
-import { api, RequestError } from '../../lib/api';
+import { api, API_URL, RequestError } from '../../lib/api';
+import { resizeImage } from '../../lib/image';
 import { ACCESS_LABEL, DAY_LABEL, DIFFICULTY_LABEL } from '../../lib/format';
 import { circuitKeys } from '../../lib/queries';
 import { GpxPreview, parseGpxCoordinates } from './GpxPreview';
@@ -34,6 +35,7 @@ export function CircuitForm({ editing, onDone }: Props) {
   const [gpxCoords, setGpxCoords] = useState<[number, number][] | null>(null);
   const [photos, setPhotos] = useState<File[]>([]);
   const [dragging, setDragging] = useState(false);
+  const [borradas, setBorradas] = useState<string[]>([]);
 
   async function handleGpx(file: File) {
     setGpxFile(file);
@@ -73,7 +75,7 @@ export function CircuitForm({ editing, onDone }: Props) {
         circuitId = created.id;
       }
       for (const photo of photos) {
-        await api.admin.uploadMedia(circuitId, photo);
+        await api.admin.uploadMedia(circuitId, await resizeImage(photo));
       }
     },
     onSuccess: () => {
@@ -285,9 +287,43 @@ export function CircuitForm({ editing, onDone }: Props) {
         </button>
       </fieldset>
 
+      {editing && editing.media.length > 0 && (
+        <div>
+          <p className="mb-1 text-sm font-medium">Fotos cargadas</p>
+          <div className="flex flex-wrap gap-2">
+            {editing.media
+              .filter((m) => !borradas.includes(m.url))
+              .map((m) => (
+                <div key={m.url} className="relative">
+                  <img
+                    src={`${API_URL}${m.url}`}
+                    alt=""
+                    className="h-20 w-20 rounded-lg object-cover"
+                  />
+                  <button
+                    type="button"
+                    aria-label="Borrar esta foto"
+                    onClick={async () => {
+                      try {
+                        await api.admin.removeMedia(editing.id, m.url);
+                        setBorradas((prev) => [...prev, m.url]);
+                      } catch {
+                        toast('No se pudo borrar la foto');
+                      }
+                    }}
+                    className="absolute -top-1.5 -right-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-red-700 text-xs text-white shadow"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
       <div>
         <label htmlFor="photos" className="mb-1 block text-sm font-medium">
-          Fotos (JPEG, PNG o WebP)
+          Agregar fotos (JPEG, PNG o WebP)
         </label>
         <input
           id="photos"
@@ -298,7 +334,9 @@ export function CircuitForm({ editing, onDone }: Props) {
           className="block text-sm"
         />
         {photos.length > 0 && (
-          <p className="mt-1 text-sm text-stone-600">{photos.length} foto(s) para subir</p>
+          <p className="mt-1 text-sm text-stone-600">
+            {photos.length} foto(s) para subir. Se redimensionan solas antes de enviarlas.
+          </p>
         )}
       </div>
 

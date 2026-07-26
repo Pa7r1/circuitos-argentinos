@@ -9,25 +9,28 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import type { Config } from './config.js';
 import type { Db } from './db/index.js';
-import { errorHandler, unauthorized } from './lib/errors.js';
+import { DomainError, errorHandler, unauthorized } from './lib/errors.js';
 import { adminRepository } from './modules/admin/repository.js';
 import { adminRoutes } from './modules/admin/routes.js';
 import { adminService } from './modules/admin/service.js';
+import { authRepository } from './modules/auth/repository.js';
 import { authRoutes } from './modules/auth/routes.js';
+import { authService } from './modules/auth/service.js';
 import { circuitsRepository } from './modules/circuits/repository.js';
 import { circuitsRoutes } from './modules/circuits/routes.js';
 import { circuitsService } from './modules/circuits/service.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
+    requireUser: (request: FastifyRequest) => Promise<void>;
     requireAdmin: (request: FastifyRequest) => Promise<void>;
   }
 }
 
 declare module '@fastify/jwt' {
   interface FastifyJWT {
-    payload: { sub: string; role: 'admin' };
-    user: { sub: string; role: 'admin' };
+    payload: { sub: string; role: 'user' | 'admin'; name: string };
+    user: { sub: string; role: 'user' | 'admin'; name: string };
   }
 }
 
@@ -60,23 +63,38 @@ export async function buildApp(config: Config, db: Db): Promise<FastifyInstance>
     prefix: '/media/',
   });
 
-  app.decorate('requireAdmin', async (request: FastifyRequest) => {
+  async function verificarToken(request: FastifyRequest): Promise<void> {
     try {
       await request.jwtVerify();
     } catch {
       throw unauthorized('Token inválido o vencido');
     }
+  }
+
+  /** Cualquier cuenta con sesión válida (usuario o admin). */
+  app.decorate('requireUser', verificarToken);
+
+  /**
+   * Solo administradores. Verificar la firma no alcanza: un token de usuario
+   * común también está bien firmado, así que hay que exigir el rol.
+   */
+  app.decorate('requireAdmin', async (request: FastifyRequest) => {
+    await verificarToken(request);
+    if (request.user.role !== 'admin') {
+      throw new DomainError(403, 'PROHIBIDO', 'Necesitás permisos de administrador');
+    }
   });
 
   const circuitsRepo = circuitsRepository(db);
   const adminRepo = adminRepository(db);
+  const auth = authService(authRepository(db));
 
   await app.register(
     async (v1) => {
       v1.get('/health', async () => ({ status: 'ok' }));
-      await v1.register(authRoutes(config), { prefix: '/auth' });
-      await v1.register(circuitsRoutes(circuitsService(circuitsRepo)));
-      await v1.register(adminRoutes(adminService(config, adminRepo)));
+      await v1.register(authRoutes(config, auth), { prefix: '/auth' });
+      await v1.register(circuitsRoutes(circuitsService(circuitsRepo), config));
+      await v1.register(adminRoutes(adminService(config, adminRepo, () => auth.countUsers())));
     },
     { prefix: '/api/v1' },
   );

@@ -40,6 +40,8 @@ function multipart(parts: { name: string; data: Buffer | string; filename?: stri
 let app: FastifyInstance;
 let client: ReturnType<typeof createDb>['client'];
 let token: string;
+/** sesión de usuario común: la ficha ahora exige registro */
+let userAuth: { authorization: string };
 
 beforeAll(async () => {
   const testUrl = await createCleanTestDb();
@@ -60,6 +62,13 @@ beforeAll(async () => {
   const created = createDb(testUrl);
   client = created.client;
   app = await buildApp(config, created.db);
+
+  const registro = await app.inject({
+    method: 'POST',
+    url: '/api/v1/auth/register',
+    payload: { name: 'Lector', email: 'lector@ejemplo.com', password: 'password-de-prueba' },
+  });
+  userAuth = { authorization: `Bearer ${registro.json<{ token: string }>().token}` };
 });
 
 afterAll(async () => {
@@ -104,7 +113,11 @@ describe('health y públicos', () => {
   });
 
   it('GET /circuits/:slug devuelve la ficha completa con track', async () => {
-    const res = await app.inject({ method: 'GET', url: '/api/v1/circuits/quebrada-del-condor' });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/circuits/quebrada-del-condor',
+      headers: userAuth,
+    });
     expect(res.statusCode).toBe(200);
     const detail = res.json<CircuitDetail>();
     expect(detail.track.type).toBe('LineString');
@@ -113,7 +126,11 @@ describe('health y públicos', () => {
   });
 
   it('GET /circuits/:slug → 404 si no existe', async () => {
-    const res = await app.inject({ method: 'GET', url: '/api/v1/circuits/no-existe' });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/circuits/no-existe',
+      headers: userAuth,
+    });
     expect(res.statusCode).toBe(404);
     expect(res.json()).not.toHaveProperty('stack');
   });
@@ -206,7 +223,11 @@ describe('flujo admin completo', () => {
     });
     expect(patch.statusCode).toBe(204);
 
-    const res = await app.inject({ method: 'GET', url: `/api/v1/circuits/${circuitSlug}` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/v1/circuits/${circuitSlug}`,
+      headers: userAuth,
+    });
     expect(res.statusCode).toBe(200);
     const detail = res.json<CircuitDetail>();
     expect(detail.schedules).toEqual([
@@ -249,7 +270,11 @@ describe('flujo admin completo', () => {
     });
     expect(del.statusCode).toBe(204);
 
-    const pub = await app.inject({ method: 'GET', url: `/api/v1/circuits/${circuitSlug}` });
+    const pub = await app.inject({
+      method: 'GET',
+      url: `/api/v1/circuits/${circuitSlug}`,
+      headers: userAuth,
+    });
     expect(pub.statusCode).toBe(404);
 
     const admin = await app.inject({

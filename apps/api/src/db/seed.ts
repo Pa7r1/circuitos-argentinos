@@ -1,4 +1,6 @@
 import { sql } from 'drizzle-orm';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createDb } from './index.js';
 import { DISCIPLINES, PROVINCES } from '@circuitos/shared';
@@ -6,18 +8,42 @@ import { disciplines, provinces } from './schema.js';
 
 // Trazado de ejemplo: ~20 puntos alrededor de La Rioja capital (-29.41, -66.85)
 // para desarrollar el frontend sin datos reales.
-function sampleTrackWkt(): { track: string; start: string } {
+function sampleTrackWkt(): { track: string; start: string; points: [number, number][] } {
   const points: string[] = [];
+  const coords: [number, number][] = [];
   for (let i = 0; i < 20; i++) {
     const angle = (i / 19) * Math.PI * 1.5;
     const lon = -66.85 + 0.02 * Math.cos(angle) + i * 0.001;
     const lat = -29.41 + 0.015 * Math.sin(angle);
     points.push(`${lon.toFixed(6)} ${lat.toFixed(6)}`);
+    coords.push([Number(lon.toFixed(6)), Number(lat.toFixed(6))]);
   }
   return {
     track: `LINESTRING(${points.join(',')})`,
     start: `POINT(${points[0]})`,
+    points: coords,
   };
+}
+
+/** GPX del circuito de ejemplo, para que la descarga funcione desde el primer arranque. */
+async function writeSampleGpx(points: [number, number][]): Promise<string> {
+  const dir = process.env.GPX_DIR ?? './data/gpx';
+  const trkpts = points
+    .map(([lon, lat]) => `      <trkpt lat="${lat}" lon="${lon}"><ele>520</ele></trkpt>`)
+    .join('\n');
+  const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Circuitos Argentinos" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk>
+    <name>Quebrada del Cóndor</name>
+    <trkseg>
+${trkpts}
+    </trkseg>
+  </trk>
+</gpx>
+`;
+  await mkdir(dir, { recursive: true });
+  await writeFile(path.join(dir, 'quebrada-del-condor.gpx'), gpx);
+  return '/gpx/quebrada-del-condor.gpx';
 }
 
 export async function runSeed(url: string): Promise<void> {
@@ -26,18 +52,19 @@ export async function runSeed(url: string): Promise<void> {
     await db.insert(disciplines).values(DISCIPLINES.map((d) => ({ ...d }))).onConflictDoNothing();
     await db.insert(provinces).values(PROVINCES.map((p) => ({ ...p }))).onConflictDoNothing();
 
-    const { track, start } = sampleTrackWkt();
+    const { track, start, points } = sampleTrackWkt();
+    const gpxUrl = await writeSampleGpx(points);
     await db.execute(sql`
       INSERT INTO circuits
         (slug, name, description, discipline_id, province_id, locality, difficulty,
-         access_type, status, track, start_point, distance_m, elevation_gain_m)
+         access_type, status, track, start_point, distance_m, elevation_gain_m, gpx_url)
       SELECT
         'quebrada-del-condor', 'Quebrada del Cóndor',
         'Circuito de enduro de ejemplo en las afueras de La Rioja capital.',
         d.id, p.id, 'La Rioja', 'intermedio',
         'libre', 'published',
         ST_GeogFromText(${track}), ST_GeogFromText(${start}),
-        12500, 340
+        12500, 340, ${gpxUrl}
       FROM disciplines d, provinces p
       WHERE d.slug = 'enduro' AND p.slug = 'la-rioja'
       ON CONFLICT (slug) DO NOTHING

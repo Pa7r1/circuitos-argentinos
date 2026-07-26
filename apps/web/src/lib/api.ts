@@ -1,15 +1,19 @@
 import type {
   AdminCircuitDetail,
   AdminCircuitListItem,
+  AdminLoginRequest,
   ApiError,
+  AuthResponse,
+  AuthUser,
   CircuitDetail,
   CircuitListQuery,
   CircuitSummary,
   CircuitUpdateBody,
   LoginRequest,
   LoginResponse,
+  RegisterRequest,
 } from '@circuitos/shared';
-import { getToken, clearToken } from './auth';
+import { clearSession, getToken } from './session';
 
 /** Vacío = mismo origen (el proxy de vite en dev, o el reverse proxy en prod). */
 export const API_URL: string = import.meta.env.VITE_API_URL ?? '';
@@ -33,7 +37,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       // respuesta no JSON
     }
-    if (res.status === 401) clearToken();
+    if (res.status === 401) clearSession();
     throw new RequestError(
       res.status,
       error?.code ?? 'ERROR',
@@ -41,6 +45,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     );
   }
   return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
+}
+
+function post<T>(path: string, body: unknown): Promise<T> {
+  return request(path, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
 }
 
 function authHeaders(): Record<string, string> {
@@ -59,15 +71,32 @@ export const api = {
   },
 
   circuitDetail(slug: string): Promise<CircuitDetail> {
-    return request(`/circuits/${encodeURIComponent(slug)}`);
+    return request(`/circuits/${encodeURIComponent(slug)}`, { headers: authHeaders() });
   },
 
-  login(body: LoginRequest): Promise<LoginResponse> {
-    return request('/auth/admin/login', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
+  register(body: RegisterRequest): Promise<AuthResponse> {
+    return post('/auth/register', body);
+  },
+
+  login(body: LoginRequest): Promise<AuthResponse> {
+    return post('/auth/login', body);
+  },
+
+  adminLogin(body: AdminLoginRequest): Promise<LoginResponse> {
+    return post('/auth/admin/login', body);
+  },
+
+  me(): Promise<AuthUser> {
+    return request('/auth/me', { headers: authHeaders() });
+  },
+
+  /** Descarga el GPX original (requiere sesión) y lo entrega como blob. */
+  async downloadGpx(slug: string): Promise<Blob> {
+    const res = await fetch(`${API_URL}/api/v1/circuits/${encodeURIComponent(slug)}/gpx`, {
+      headers: authHeaders(),
     });
+    if (!res.ok) throw new RequestError(res.status, 'GPX', 'No se pudo descargar el GPX');
+    return res.blob();
   },
 
   admin: {
@@ -77,6 +106,18 @@ export const api = {
 
     detail(id: string): Promise<AdminCircuitDetail> {
       return request(`/admin/circuits/${id}`, { headers: authHeaders() });
+    },
+
+    stats(): Promise<{ published: number; draft: number; archived: number; users: number }> {
+      return request('/admin/stats', { headers: authHeaders() });
+    },
+
+    removeMedia(id: string, url: string): Promise<void> {
+      return request(`/admin/circuits/${id}/media`, {
+        method: 'DELETE',
+        headers: { ...authHeaders(), 'content-type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
     },
 
     create(form: FormData): Promise<{ id: string; slug: string }> {

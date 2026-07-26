@@ -9,11 +9,14 @@ import {
   DIFFICULTY_LABEL,
   formatKm,
 } from '../../lib/format';
-import { API_URL } from '../../lib/api';
+import { api, API_URL, RequestError } from '../../lib/api';
 import { MapLayerToggle } from '../../components/MapLayerToggle';
 import { type MapLayer } from '../../lib/map-style';
 import { useCircuitDetail } from '../../lib/queries';
 import { createBaseLayers, MAP_OPTIONS, useLeaflet } from '../../lib/use-leaflet';
+import { useSession } from '../../lib/use-session';
+import { useToast } from '../../components/Toast';
+import { AuthModal } from '../auth/AuthModal';
 
 function TrackMap({ circuit }: { circuit: CircuitDetail }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -77,9 +80,51 @@ function DetailSkeleton() {
   );
 }
 
+/** Invitación a registrarse cuando alguien abre el enlace sin cuenta. */
+function Peaje({ onEntrar }: { onEntrar: () => void }) {
+  return (
+    <main className="mx-auto flex min-h-full max-w-md flex-col justify-center p-6 text-center">
+      <h1 className="mb-2 text-2xl font-bold">Creá tu cuenta para ver este circuito</h1>
+      <p className="mb-6 text-stone-600">
+        El mapa es libre. Para ver el trazado completo, los accesos, los horarios y descargar el
+        GPX te pedimos una cuenta: así sabemos quién usa la información de los circuitos.
+      </p>
+      <button
+        onClick={onEntrar}
+        className="mb-3 min-h-11 w-full rounded-lg bg-brand-600 py-3 font-semibold text-white hover:bg-brand-700"
+      >
+        Crear cuenta o ingresar
+      </button>
+      <Link to="/" className="min-h-11 font-medium text-brand-700 underline">
+        Volver al mapa
+      </Link>
+    </main>
+  );
+}
+
 export function CircuitPage() {
   const { slug } = useParams<{ slug: string }>();
-  const { data: circuit, isPending, isError } = useCircuitDetail(slug!);
+  const session = useSession();
+  const toast = useToast();
+  const [pedirCuenta, setPedirCuenta] = useState(false);
+  const [foto, setFoto] = useState<string | null>(null);
+  const { data: circuit, isPending, isError, error } = useCircuitDetail(slug!);
+
+  const sinSesion = !session || (error instanceof RequestError && error.statusCode === 401);
+  if (sinSesion) {
+    return (
+      <>
+        <Peaje onEntrar={() => setPedirCuenta(true)} />
+        {pedirCuenta && (
+          <AuthModal
+            motivo="Con tu cuenta vas a poder ver el trazado completo y descargar el GPX."
+            onClose={() => setPedirCuenta(false)}
+            onListo={() => setPedirCuenta(false)}
+          />
+        )}
+      </>
+    );
+  }
 
   if (isPending) return <DetailSkeleton />;
   if (isError || !circuit) {
@@ -146,12 +191,35 @@ export function CircuitPage() {
           {circuit.accessNotes && <p className="mt-1">{circuit.accessNotes}</p>}
         </div>
 
-        <a
-          href={directionsUrl}
-          className="mb-6 block min-h-11 w-full rounded-lg bg-brand-600 py-3 text-center font-semibold text-white hover:bg-brand-700"
-        >
-          Cómo llegar
-        </a>
+        <div className="mb-6 grid gap-2 sm:grid-cols-2">
+          <a
+            href={directionsUrl}
+            className="block min-h-11 rounded-lg bg-brand-600 py-3 text-center font-semibold text-white hover:bg-brand-700"
+          >
+            Cómo llegar
+          </a>
+          <button
+            onClick={async () => {
+              try {
+                const blob = await api.downloadGpx(circuit.slug);
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${circuit.slug}.gpx`;
+                a.click();
+                URL.revokeObjectURL(url);
+              } catch {
+                toast('Este circuito todavía no tiene archivo GPX para descargar.');
+              }
+            }}
+            className="block min-h-11 rounded-lg border-2 border-brand-600 py-3 text-center font-semibold text-brand-700 hover:bg-brand-50"
+          >
+            Descargar GPX
+          </button>
+          <p className="text-xs text-stone-500 sm:col-span-2">
+            El GPX se abre en Strava, Relive, Wikiloc o tu GPS.
+          </p>
+        </div>
 
         {circuit.schedules.length > 0 && (
           <section className="mb-6">
@@ -179,30 +247,57 @@ export function CircuitPage() {
           </section>
         )}
 
-        {circuit.media.length > 0 && (
-          <section className="mb-6">
-            <h2 className="mb-2 text-lg font-semibold">Fotos</h2>
-            <div className="flex snap-x gap-2 overflow-x-auto">
-              {circuit.media.map((m) => (
-                <img
-                  key={m.url}
-                  src={`${API_URL}${m.url}`}
-                  alt={`Foto del circuito ${circuit.name}`}
-                  loading="lazy"
-                  className="h-40 w-auto shrink-0 snap-start rounded-lg object-cover"
-                />
-              ))}
-            </div>
-          </section>
-        )}
-
         {circuit.description && (
-          <section>
+          <section className="mb-6">
             <h2 className="mb-2 text-lg font-semibold">Descripción</h2>
             <p className="whitespace-pre-line text-stone-700">{circuit.description}</p>
           </section>
         )}
+
+        {circuit.media.length > 0 && (
+          <section>
+            <h2 className="mb-2 text-lg font-semibold">Fotos del lugar</h2>
+            <p className="mb-2 text-sm text-stone-500">
+              La entrada, el estado del terreno y las referencias para llegar.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {circuit.media.map((m) => (
+                <button
+                  key={m.url}
+                  onClick={() => setFoto(`${API_URL}${m.url}`)}
+                  className="overflow-hidden rounded-lg"
+                  aria-label="Ver la foto en grande"
+                >
+                  <img
+                    src={`${API_URL}${m.url}`}
+                    alt={`Foto del circuito ${circuit.name}`}
+                    loading="lazy"
+                    className="h-32 w-full object-cover transition-transform hover:scale-105"
+                  />
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
+
+      {foto && (
+        <div
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/90 p-4"
+          onClick={() => setFoto(null)}
+          role="dialog"
+          aria-label="Foto ampliada"
+        >
+          <img src={foto} alt="" className="max-h-full max-w-full object-contain" />
+          <button
+            onClick={() => setFoto(null)}
+            aria-label="Cerrar la foto"
+            className="absolute top-4 right-4 flex h-11 w-11 items-center justify-center rounded-full bg-white/20 text-2xl text-white"
+          >
+            ✕
+          </button>
+        </div>
+      )}
     </main>
   );
 }

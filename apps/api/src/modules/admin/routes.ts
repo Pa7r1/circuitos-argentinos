@@ -89,6 +89,8 @@ export function adminRoutes(service: AdminService) {
 
     const typed = app.withTypeProvider<ZodTypeProvider>();
 
+    typed.get('/admin/stats', async () => service.stats());
+
     typed.get('/admin/circuits', async () => service.list());
 
     typed.get(
@@ -136,6 +138,15 @@ export function adminRoutes(service: AdminService) {
       { schema: { params: idParamsSchema } },
       async (request, reply) => {
         await service.archive(request.params.id);
+        return reply.status(204).send();
+      },
+    );
+
+    typed.delete(
+      '/admin/circuits/:id/media',
+      { schema: { params: idParamsSchema, body: z.object({ url: z.string().min(1).max(500) }) } },
+      async (request, reply) => {
+        await service.removeMedia(request.params.id, request.body.url);
         return reply.status(204).send();
       },
     );

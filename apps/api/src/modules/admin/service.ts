@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type {
   AdminCircuitListItem,
@@ -21,7 +21,18 @@ const IMAGE_TYPES: { ext: string; mime: string; matches: (b: Buffer) => boolean 
   },
 ];
 
-export function adminService(config: Config, repo: AdminRepository) {
+export interface AdminStats {
+  published: number;
+  draft: number;
+  archived: number;
+  users: number;
+}
+
+export function adminService(
+  config: Config,
+  repo: AdminRepository,
+  countUsers: () => Promise<number>,
+) {
   async function saveGpxFile(slug: string, gpxBuffer: Buffer): Promise<string> {
     await mkdir(config.GPX_DIR, { recursive: true });
     const filePath = path.join(config.GPX_DIR, `${slug}.gpx`);
@@ -50,6 +61,25 @@ export function adminService(config: Config, repo: AdminRepository) {
   return {
     list(): Promise<AdminCircuitListItem[]> {
       return repo.listAll();
+    },
+
+    async stats(): Promise<AdminStats> {
+      const [counts, users] = await Promise.all([repo.counts(), countUsers()]);
+      return {
+        published: counts.published ?? 0,
+        draft: counts.draft ?? 0,
+        archived: counts.archived ?? 0,
+        users,
+      };
+    },
+
+    /** Borra la foto de la base y del disco (si el archivo ya no está, no falla). */
+    async removeMedia(id: string, url: string): Promise<void> {
+      const existing = await repo.findById(id);
+      if (!existing) throw notFound('Circuito no encontrado');
+      if (!(await repo.deleteMedia(id, url))) throw notFound('Foto no encontrada');
+      const fileName = path.basename(url);
+      await rm(path.join(config.MEDIA_DIR, id, fileName), { force: true });
     },
 
     async detail(id: string) {

@@ -1,6 +1,6 @@
 import type { Map as LeafletMap, Marker } from 'leaflet';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import type { CircuitSummary } from '@circuitos/shared';
 import { DISCIPLINES } from '@circuitos/shared';
 import { MapLayerToggle } from '../../components/MapLayerToggle';
@@ -21,6 +21,9 @@ import type { Place } from '../../lib/geocode';
 import { LA_RIOJA_BOUNDS, type MapLayer } from '../../lib/map-style';
 import { useCircuits } from '../../lib/queries';
 import { createBaseLayers, MAP_OPTIONS, useLeaflet } from '../../lib/use-leaflet';
+import { useSession } from '../../lib/use-session';
+import { AccountButton } from '../auth/AccountButton';
+import { AuthModal } from '../auth/AuthModal';
 import { PlaceSearch } from './PlaceSearch';
 
 /** Radio de una búsqueda por lugar: amplio a propósito, el circuito puede estar
@@ -47,8 +50,11 @@ export function MapPage() {
   const [place, setPlace] = useState<Place | null>(null);
   const [radiusM, setRadiusM] = useState(SEARCH_RADIUS_M);
   const [selected, setSelected] = useState<CircuitSummary | null>(null);
+  const [pedirCuenta, setPedirCuenta] = useState<{ motivo?: string; irA?: string } | null>(null);
   const toast = useToast();
   const L = useLeaflet();
+  const session = useSession();
+  const navigate = useNavigate();
 
   // ponytail: una sola consulta con todos los publicados (tope 200 del server) y
   // el filtrado en memoria. Cuando haya más circuitos que ese tope, pasar a
@@ -220,6 +226,7 @@ export function MapPage() {
           >
             ◎
           </button>
+          <AccountButton onPedirCuenta={() => setPedirCuenta({})} />
         </div>
         <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrar por disciplina">
           {DISCIPLINES.map((d) => {
@@ -348,13 +355,40 @@ export function MapPage() {
               {ACCESS_LABEL[selected.accessType]}
             </span>
           </div>
-          <Link
-            to={`/circuitos/${selected.slug}`}
-            className="block min-h-11 w-full rounded-lg bg-brand-600 py-3 text-center font-semibold text-white hover:bg-brand-700"
-          >
-            Ver circuito
-          </Link>
+          {session ? (
+            <Link
+              to={`/circuitos/${selected.slug}`}
+              className="block min-h-11 w-full rounded-lg bg-brand-600 py-3 text-center font-semibold text-white hover:bg-brand-700"
+            >
+              Ver circuito
+            </Link>
+          ) : (
+            <button
+              onClick={() =>
+                setPedirCuenta({
+                  motivo:
+                    'Creá tu cuenta para ver el trazado completo, los accesos, los horarios y descargar el GPX.',
+                  irA: `/circuitos/${selected.slug}`,
+                })
+              }
+              className="block min-h-11 w-full rounded-lg bg-brand-600 py-3 text-center font-semibold text-white hover:bg-brand-700"
+            >
+              Ver circuito
+            </button>
+          )}
         </div>
+      )}
+
+      {pedirCuenta && (
+        <AuthModal
+          motivo={pedirCuenta.motivo}
+          onClose={() => setPedirCuenta(null)}
+          onListo={() => {
+            const destino = pedirCuenta.irA;
+            setPedirCuenta(null);
+            if (destino) navigate(destino);
+          }}
+        />
       )}
     </main>
   );

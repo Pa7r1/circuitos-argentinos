@@ -56,11 +56,41 @@ export const PROVINCES = [
 ] as const;
 
 // --- Auth ---
-export interface LoginRequest {
+export type UserRole = 'user' | 'admin';
+
+/** Login del admin único por variables de entorno (puerta de servicio). */
+export interface AdminLoginRequest {
   user: string;
   password: string;
 }
 
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RegisterRequest {
+  name: string;
+  email: string;
+  password: string;
+  /** slug de la disciplina que practica; opcional */
+  discipline?: string;
+}
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  discipline: string | null;
+}
+
+export interface AuthResponse {
+  token: string;
+  user: AuthUser;
+}
+
+/** Respuesta del login de admin por env: no hay fila de usuario detrás. */
 export interface LoginResponse {
   token: string;
 }

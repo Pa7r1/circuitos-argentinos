@@ -11,6 +11,7 @@ import {
   text,
   time,
   timestamp,
+  unique,
   uuid,
 } from 'drizzle-orm/pg-core';
 
@@ -34,6 +35,35 @@ export const provinces = pgTable('provinces', {
   slug: text('slug').notNull().unique(),
   name: text('name').notNull(),
 });
+
+export const users = pgTable(
+  'users',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    name: text('name').notNull(),
+    // siempre en minúsculas: el service normaliza antes de escribir
+    email: text('email').notNull().unique(),
+    // null cuando la cuenta entra por un proveedor externo (Google, etc.)
+    passwordHash: text('password_hash'),
+    disciplineId: smallint('discipline_id').references(() => disciplines.id),
+    role: text('role').notNull().default('user'),
+    oauthProvider: text('oauth_provider'),
+    oauthSubject: text('oauth_subject'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check('users_role_check', sql`${t.role} in ('user','admin')`),
+    // ninguna cuenta puede quedar sin forma de entrar
+    check(
+      'users_credencial_check',
+      sql`${t.passwordHash} is not null or (${t.oauthProvider} is not null and ${t.oauthSubject} is not null)`,
+    ),
+    unique('users_oauth_unique').on(t.oauthProvider, t.oauthSubject),
+  ],
+);
 
 export const circuits = pgTable(
   'circuits',
