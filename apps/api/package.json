@@ -5,17 +5,32 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsup src/server.ts --format esm --target node22 --clean",
+    "build": "tsup",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
+    "hash-password": "tsx src/scripts/hash-password.ts",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts"
   },
   "dependencies": {
     "@circuitos/shared": "workspace:*",
+    "@fastify/cors": "^11.3.0",
+    "@fastify/jwt": "^10.2.1",
+    "@fastify/multipart": "^10.1.0",
+    "@fastify/rate-limit": "^11.1.0",
+    "@fastify/static": "^10.1.2",
+    "@tmcw/togeojson": "^7.1.2",
+    "@turf/helpers": "^7.3.5",
+    "@turf/length": "^7.3.5",
+    "@turf/simplify": "^7.3.5",
+    "@xmldom/xmldom": "^0.9.10",
+    "bcryptjs": "^3.0.3",
     "drizzle-orm": "^0.45.2",
-    "postgres": "^3.4.9"
+    "fastify": "^5.10.0",
+    "fastify-type-provider-zod": "^7.0.0",
+    "postgres": "^3.4.9",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^22.7.0",

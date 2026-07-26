@@ -21,13 +21,14 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
       target: dev
+    # format raw: sin interpolación (los hash bcrypt llevan '$')
+    env_file:
+      - path: .env
+        format: raw
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      PORT: ${PORT:-3000}
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
-      ADMIN_USER: ${ADMIN_USER}
-      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH}
-      JWT_SECRET: ${JWT_SECRET}
+      GPX_DIR: /data/gpx
+      MEDIA_DIR: /data/media
     ports:
       - '${PORT:-3000}:${PORT:-3000}'
     volumes:

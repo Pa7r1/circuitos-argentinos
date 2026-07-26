@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk>
+    <name>Vuelta corta</name>
+    <trkseg>
+      <trkpt lat="-29.4100" lon="-66.8500"><ele>520</ele></trkpt>
+      <trkpt lat="-29.4110" lon="-66.8490"><ele>528</ele></trkpt>
+      <trkpt lat="-29.4122" lon="-66.8478"><ele>524</ele></trkpt>
+      <trkpt lat="-29.4135" lon="-66.8465"><ele>537</ele></trkpt>
+      <trkpt lat="-29.4148" lon="-66.8455"><ele>545</ele></trkpt>
+      <trkpt lat="-29.4160" lon="-66.8442"><ele>540</ele></trkpt>
+      <trkpt lat="-29.4172" lon="-66.8430"><ele>552</ele></trkpt>
+    </trkseg>
+  </trk>
+</gpx>
