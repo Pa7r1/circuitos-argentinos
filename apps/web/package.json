@@ -1,0 +1,15 @@
+{
+  "name": "web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "echo \"pendiente etapa de frontend\" && exit 0",
+    "build": "echo \"pendiente etapa de frontend\" && exit 0",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"sin tests\" && exit 0"
+  },
+  "dependencies": {
+    "@circuitos/shared": "workspace:*"
+  }
+}

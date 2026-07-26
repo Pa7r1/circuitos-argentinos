@@ -1,0 +1,21 @@
+{
+  "name": "api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"sin tests\" && exit 0",
+    "db:migrate": "echo \"pendiente etapa 2\" && exit 0",
+    "db:seed": "echo \"pendiente etapa 2\" && exit 0"
+  },
+  "dependencies": {
+    "@circuitos/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "tsx": "^4.19.1"
+  }
+}
