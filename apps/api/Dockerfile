@@ -28,6 +28,8 @@ FROM node:22-alpine AS runner
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build --chown=node:node /app/apps/api/dist ./dist
+# el migrador lee los .sql desde disco, junto al bundle
+COPY --from=build --chown=node:node /app/apps/api/src/db/migrations ./dist/migrations
 USER node
 EXPOSE 3000
 CMD ["node", "dist/server.js"]

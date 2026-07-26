@@ -1,7 +1,8 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: ['src/server.ts'],
+  // migrate y seed también van al bundle: en el VPS se corren como one-off en la imagen
+  entry: { server: 'src/server.ts', migrate: 'src/db/migrate.ts', seed: 'src/db/seed.ts' },
   format: 'esm',
   target: 'node22',
   clean: true,
