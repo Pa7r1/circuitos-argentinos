@@ -22,6 +22,7 @@ import { LA_RIOJA_BOUNDS, type MapLayer } from '../../lib/map-style';
 import { useCircuits } from '../../lib/queries';
 import { createBaseLayers, MAP_OPTIONS, useLeaflet } from '../../lib/use-leaflet';
 import { useSession } from '../../lib/use-session';
+import { useSlowRequest } from '../../lib/use-slow-request';
 import { AccountButton } from '../auth/AccountButton';
 import { AuthModal } from '../auth/AuthModal';
 import { PlaceSearch } from './PlaceSearch';
@@ -60,6 +61,7 @@ export function MapPage() {
   // el filtrado en memoria. Cuando haya más circuitos que ese tope, pasar a
   // consultar por el bbox del viewport (el ST_DWithin de la API ya está listo).
   const { data: allCircuits, isPending, isError } = useCircuits({});
+  const despertando = useSlowRequest(isPending);
 
   const origin = place?.lonLat ?? myPosition;
 
@@ -275,8 +277,8 @@ export function MapPage() {
       </div>
 
       {isPending && (
-        <p className="absolute top-1/2 left-1/2 z-[500] -translate-x-1/2 rounded-lg bg-white/95 px-4 py-2 text-sm font-medium shadow-md">
-          Cargando circuitos…
+        <p className="absolute top-1/2 left-1/2 z-[500] max-w-[85%] -translate-x-1/2 rounded-lg bg-white/95 px-4 py-2 text-center text-sm font-medium shadow-md">
+          {despertando ? 'Despertando el servidor, puede tardar un minuto…' : 'Cargando circuitos…'}
         </p>
       )}
 

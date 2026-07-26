@@ -15,6 +15,7 @@ import { type MapLayer } from '../../lib/map-style';
 import { useCircuitDetail } from '../../lib/queries';
 import { createBaseLayers, MAP_OPTIONS, useLeaflet } from '../../lib/use-leaflet';
 import { useSession } from '../../lib/use-session';
+import { useSlowRequest } from '../../lib/use-slow-request';
 import { useToast } from '../../components/Toast';
 import { AuthModal } from '../auth/AuthModal';
 
@@ -69,13 +70,18 @@ function TrackMap({ circuit }: { circuit: CircuitDetail }) {
   );
 }
 
-function DetailSkeleton() {
+function DetailSkeleton({ despertando }: { despertando: boolean }) {
   return (
     <div className="mx-auto max-w-2xl p-4" aria-busy="true" aria-label="Cargando circuito">
       <div className="skeleton mb-4 h-64 w-full" />
       <div className="skeleton mb-2 h-8 w-2/3" />
       <div className="skeleton mb-4 h-4 w-1/3" />
       <div className="skeleton h-24 w-full" />
+      {despertando && (
+        <p className="mt-4 text-center text-sm text-stone-600">
+          Despertando el servidor, puede tardar un minuto…
+        </p>
+      )}
     </div>
   );
 }
@@ -109,6 +115,7 @@ export function CircuitPage() {
   const [pedirCuenta, setPedirCuenta] = useState(false);
   const [foto, setFoto] = useState<string | null>(null);
   const { data: circuit, isPending, isError, error } = useCircuitDetail(slug!);
+  const despertando = useSlowRequest(isPending);
 
   const sinSesion = !session || (error instanceof RequestError && error.statusCode === 401);
   if (sinSesion) {
@@ -126,7 +133,7 @@ export function CircuitPage() {
     );
   }
 
-  if (isPending) return <DetailSkeleton />;
+  if (isPending) return <DetailSkeleton despertando={despertando} />;
   if (isError || !circuit) {
     return (
       <main className="mx-auto max-w-2xl p-6 text-center">

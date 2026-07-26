@@ -3,6 +3,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { ToastProvider } from './components/Toast';
+import { RequestError } from './lib/api';
 import { CircuitPage } from './features/circuit-detail/CircuitPage';
 import { MapPage } from './features/map/MapPage';
 import './index.css';
@@ -14,7 +15,16 @@ const AdminPage = React.lazy(() =>
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { retry: 1, refetchOnWindowFocus: false },
+    queries: {
+      // los 4xx son respuestas legítimas (el 401 del peaje, un slug que no existe):
+      // reintentarlas solo suma demora. Los cortes de red y los 5xx sí se reintentan,
+      // porque la API del plan gratuito puede estar despertando.
+      retry: (intentos, error) => {
+        if (error instanceof RequestError && error.statusCode < 500) return false;
+        return intentos < 2;
+      },
+      refetchOnWindowFocus: false,
+    },
   },
 });
 
