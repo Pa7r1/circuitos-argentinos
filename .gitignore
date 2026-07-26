@@ -3,7 +3,6 @@ node_modules/
 dist/
 build/
 *.tsbuildinfo
-.turbo/
 
 # entorno y secretos
 .env
@@ -12,17 +11,10 @@ build/
 
 # datos locales
 /data/
+backups/
 coverage/
 
 # editor / sistema
 .vscode/
 .idea/
 .DS_Store
-
-# archivos de trabajo internos (no publicar)
-.claude/
-CLAUDE.md
-MEMORY.md
-PROMT-*.md
-ESTRUCTURA.md
-identidades/

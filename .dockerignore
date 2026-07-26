@@ -1,13 +1,9 @@
+# el build solo copia manifiestos y fuentes: afuera dotfiles, docs y artefactos
+.*
+*.md
 node_modules
 **/node_modules
 **/dist
-.git
-.env
-.env.*
 data
+backups
 coverage
-.claude
-MEMORY.md
-CLAUDE.md
-PROMT-*.md
-ESTRUCTURA.md
