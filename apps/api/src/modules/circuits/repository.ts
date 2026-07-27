@@ -94,9 +94,11 @@ export function circuitsRepository(db: Db) {
         SELECT c.id, c.slug, c.name, c.description,
                d.slug AS discipline, p.slug AS province, p.name AS province_name,
                c.locality, c.difficulty, c.access_type, c.access_notes,
-               c.distance_m, c.elevation_gain_m,
+               c.distance_m, c.elevation_gain_m, c.external_map_url,
                ST_AsGeoJSON(c.start_point) AS start_point,
-               ST_AsGeoJSON(c.track) AS track
+               -- null en los circuitos cargados con enlace, que no tienen trazado
+               ST_AsGeoJSON(c.track) AS track,
+               c.gpx_url IS NOT NULL AS has_gpx
         FROM circuits c
         JOIN disciplines d ON d.id = c.discipline_id
         JOIN provinces p ON p.id = c.province_id
@@ -132,7 +134,9 @@ export function circuitsRepository(db: Db) {
         distanceM: row.distance_m as number,
         elevationGainM: row.elevation_gain_m as number | null,
         startPoint: JSON.parse(row.start_point as string) as GeoJsonPoint,
-        track: JSON.parse(row.track as string) as GeoJsonLineString,
+        track: row.track ? (JSON.parse(row.track as string) as GeoJsonLineString) : null,
+        externalMapUrl: row.external_map_url as string | null,
+        hasGpx: row.has_gpx as boolean,
         schedules: schedules.map(
           (s): CircuitSchedule => ({
             dayOfWeek: s.day_of_week,

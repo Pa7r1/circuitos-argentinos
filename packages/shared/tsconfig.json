@@ -1,7 +1,11 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "noEmit": true
+    "noEmit": true,
+    // `URL` es estándar en Node y en el navegador, pero la lib base (ES2022) no lo
+    // declara. DOM lo aporta sin agregar dependencias, y este paquete no ejecuta
+    // nada del navegador: son tipos y funciones puras.
+    "lib": ["ES2022", "DOM"]
   },
   "include": ["src"]
 }

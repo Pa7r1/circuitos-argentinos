@@ -350,3 +350,122 @@ describe('flujo admin completo', () => {
     expect(item?.status).toBe('archived');
   });
 });
+
+/**
+ * Desde Relive o Strava no se puede exportar el GPX, así que el circuito se carga
+ * con el enlace al recorrido y el punto marcado a mano.
+ */
+describe('alta con enlace al recorrido, sin GPX', () => {
+  // el nombre va por parámetro: repetir el campo en el multipart lo convierte en
+  // un arreglo y la validación se cae por otro motivo del que se quiere probar
+  const campos = (nombre: string) => [
+    { name: 'name', data: nombre },
+    { name: 'discipline', data: 'enduro' },
+    { name: 'province', data: 'la-rioja' },
+    { name: 'difficulty', data: 'intermedio' },
+    { name: 'accessType', data: 'libre' },
+  ];
+
+  let slug: string;
+
+  it('crea el circuito con enlace, punto y distancia', async () => {
+    const body = multipart([
+      ...campos('Cerro de la Cruz'),
+      { name: 'externalMapUrl', data: 'https://www.relive.com/view/vKv23E8PxoO' },
+      { name: 'startLat', data: '-29.42' },
+      { name: 'startLon', data: '-66.84' },
+      { name: 'distanceM', data: '18000' },
+      { name: 'elevationGainM', data: '600' },
+    ]);
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/circuits',
+      headers: { ...body.headers, authorization: `Bearer ${token}` },
+      payload: body.payload,
+    });
+    expect(res.statusCode).toBe(201);
+    const created = res.json<{ id: string; slug: string }>();
+    slug = created.slug;
+
+    const patch = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/admin/circuits/${created.id}`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: { status: 'published' },
+    });
+    expect(patch.statusCode).toBe(204);
+  });
+
+  it('la ficha trae el enlace, sin trazado y sin descarga de GPX', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/v1/circuits/${slug}`,
+      headers: userAuth,
+    });
+    expect(res.statusCode).toBe(200);
+    const detail = res.json<CircuitDetail>();
+    expect(detail.track).toBeNull();
+    expect(detail.hasGpx).toBe(false);
+    expect(detail.externalMapUrl).toBe('https://www.relive.com/view/vKv23E8PxoO');
+    expect(detail.distanceM).toBe(18000);
+    expect(detail.startPoint.coordinates[1]).toBeCloseTo(-29.42, 5);
+
+    // aparece en el mapa público como cualquier otro
+    const lista = await app.inject({ method: 'GET', url: '/api/v1/circuits' });
+    expect(lista.json<CircuitSummary[]>().map((c) => c.slug)).toContain(slug);
+  });
+
+  it('sin GPX no hay descarga: 404 en vez de un archivo roto', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/v1/circuits/${slug}/gpx`,
+      headers: userAuth,
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('rechaza el alta sin GPX y sin enlace', async () => {
+    const body = multipart(campos('Sin nada'));
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/circuits',
+      headers: { ...body.headers, authorization: `Bearer ${token}` },
+      payload: body.payload,
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json<{ code: string }>().code).toBe('SIN_RECORRIDO');
+  });
+
+  it('rechaza el alta con enlace pero sin punto de partida', async () => {
+    const body = multipart([
+      ...campos('Sin punto'),
+      { name: 'externalMapUrl', data: 'https://www.relive.com/view/otroId' },
+      { name: 'distanceM', data: '5000' },
+    ]);
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/circuits',
+      headers: { ...body.headers, authorization: `Bearer ${token}` },
+      payload: body.payload,
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json<{ code: string }>().code).toBe('SIN_PUNTO');
+  });
+
+  it('rechaza un enlace que no sea http(s)', async () => {
+    const body = multipart([
+      ...campos('Enlace raro'),
+      { name: 'externalMapUrl', data: 'javascript:alert(1)' },
+      { name: 'startLat', data: '-29.4' },
+      { name: 'startLon', data: '-66.8' },
+      { name: 'distanceM', data: '5000' },
+    ]);
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/circuits',
+      headers: { ...body.headers, authorization: `Bearer ${token}` },
+      payload: body.payload,
+    });
+    expect(res.statusCode).toBe(400);
+  });
+});

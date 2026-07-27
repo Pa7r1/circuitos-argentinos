@@ -1,5 +1,7 @@
 // DTOs y tipos compartidos entre apps/api y apps/web.
 
+export * from './external-map.js';
+
 // --- GeoJSON mínimo (lo único que viaja por la API) ---
 export interface GeoJsonPoint {
   type: 'Point';
@@ -136,7 +138,12 @@ export interface CircuitDetail {
   distanceM: number;
   elevationGainM: number | null;
   startPoint: GeoJsonPoint;
-  track: GeoJsonLineString;
+  /** null cuando el circuito se cargó con un enlace en vez de un GPX. */
+  track: GeoJsonLineString | null;
+  /** Recorrido en Relive, Strava, Wikiloc… cuando no hay archivo propio. */
+  externalMapUrl: string | null;
+  /** Si es false no se ofrece la descarga: no hay archivo que bajar. */
+  hasGpx: boolean;
   schedules: CircuitSchedule[];
   media: CircuitMedia[];
 }
@@ -178,6 +185,10 @@ export interface AdminCircuitDetail {
   status: CircuitStatus;
   distanceM: number;
   elevationGainM: number | null;
+  externalMapUrl: string | null;
+  /** Para reposicionar el pin al editar un circuito cargado con enlace. */
+  startPoint: GeoJsonPoint;
+  hasTrack: boolean;
   schedules: CircuitSchedule[];
   media: CircuitMedia[];
 }
@@ -189,7 +200,11 @@ export interface ScheduleInput {
   note?: string | null;
 }
 
-/** Campos de la ficha que acompañan al GPX en el alta (multipart) */
+/**
+ * Campos de la ficha en el alta (multipart). El GPX es opcional: si no viene,
+ * hay que mandar el punto de partida y la distancia, porque son los datos que
+ * el GPX aportaba.
+ */
 export interface CircuitCreateFields {
   name: string;
   description?: string;
@@ -200,6 +215,11 @@ export interface CircuitCreateFields {
   accessType: AccessType;
   accessNotes?: string;
   schedules?: ScheduleInput[];
+  externalMapUrl?: string;
+  startLat?: number;
+  startLon?: number;
+  distanceM?: number;
+  elevationGainM?: number;
 }
 
 export interface CircuitUpdateBody {
@@ -213,6 +233,12 @@ export interface CircuitUpdateBody {
   accessNotes?: string | null;
   status?: CircuitStatus;
   schedules?: ScheduleInput[];
+  externalMapUrl?: string | null;
+  /** Se mandan juntos: mover el pin de un circuito cargado con enlace. */
+  startLat?: number;
+  startLon?: number;
+  distanceM?: number;
+  elevationGainM?: number | null;
 }
 
 export interface ApiError {

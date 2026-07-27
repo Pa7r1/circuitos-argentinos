@@ -22,6 +22,12 @@ const IMAGE_TYPES: { ext: string; mime: string; matches: (b: Buffer) => boolean 
 /** Dónde se descarga el GPX de un circuito. Se guarda en `circuits.gpx_url`. */
 const gpxDownloadUrl = (slug: string) => `/api/v1/circuits/${slug}/gpx`;
 
+/**
+ * WKT del punto de partida cargado a mano. Los números ya vienen validados por
+ * el esquema de la ruta, así que no hay forma de inyectar nada acá.
+ */
+const pointWkt = (lon: number, lat: number) => `POINT(${lon} ${lat})`;
+
 export interface AdminStats {
   published: number;
   draft: number;
@@ -79,11 +85,20 @@ export function adminService(
       return circuit;
     },
 
-    async create(fields: CircuitCreateFields, gpxBuffer: Buffer): Promise<{ id: string; slug: string }> {
+    /**
+     * Alta con GPX o con enlace. Sin GPX, el punto de partida y la distancia los
+     * carga el administrador: son justo los datos que el archivo aportaba, y desde
+     * Relive o Strava no se puede exportar.
+     */
+    async create(
+      fields: CircuitCreateFields,
+      gpxBuffer: Buffer | null,
+    ): Promise<{ id: string; slug: string }> {
       const { disciplineId, provinceId } = await resolveRefs(fields.discipline, fields.province);
-      const track = processGpx(gpxBuffer.toString('utf8'));
       const slug = await uniqueSlug(fields.name, (s) => repo.slugExists(s));
-      const wkt = trackToWkt(track.coordinates);
+
+      const gpx = gpxBuffer ? processGpx(gpxBuffer.toString('utf8')) : null;
+      const wkt = gpx ? trackToWkt(gpx.coordinates) : null;
 
       const creado = await repo.create({
         slug,
@@ -95,16 +110,17 @@ export function adminService(
         difficulty: fields.difficulty,
         accessType: fields.accessType,
         accessNotes: fields.accessNotes ?? null,
-        trackWkt: wkt.track,
-        startWkt: wkt.start,
-        distanceM: track.distanceM,
-        elevationGainM: track.elevationGainM,
-        gpxUrl: gpxDownloadUrl(slug),
+        trackWkt: wkt?.track ?? null,
+        startWkt: wkt?.start ?? pointWkt(fields.startLon!, fields.startLat!),
+        distanceM: gpx?.distanceM ?? fields.distanceM!,
+        elevationGainM: gpx?.elevationGainM ?? fields.elevationGainM ?? null,
+        gpxUrl: gpxBuffer ? gpxDownloadUrl(slug) : null,
+        externalMapUrl: fields.externalMapUrl ?? null,
         schedules: fields.schedules ?? [],
       });
 
       // el archivo va después: la tabla del GPX referencia al circuito
-      await repo.saveGpx(creado.id, `${slug}.gpx`, gpxBuffer);
+      if (gpxBuffer) await repo.saveGpx(creado.id, `${slug}.gpx`, gpxBuffer);
       return creado;
     },
 
@@ -122,8 +138,15 @@ export function adminService(
         accessNotes: body.accessNotes,
         status: body.status,
         schedules: body.schedules,
+        externalMapUrl: body.externalMapUrl,
+        distanceM: body.distanceM,
+        elevationGainM: body.elevationGainM,
         ...refs,
       };
+      // lat y lon viajan juntos o no viajan: la ruta ya lo exige
+      if (body.startLat !== undefined && body.startLon !== undefined) {
+        sets.startWkt = pointWkt(body.startLon, body.startLat);
+      }
       await repo.update(id, sets);
     },
 

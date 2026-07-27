@@ -90,11 +90,15 @@ export const circuits = pgTable(
     accessType: text('access_type').notNull(),
     accessNotes: text('access_notes'),
     status: text('status').notNull().default('draft'),
-    track: geographyLineString('track').notNull(),
+    // nullable: los circuitos cargados con un enlace a Relive o Strava no tienen
+    // trazado propio, porque esas aplicaciones no dejan exportar el GPX
+    track: geographyLineString('track'),
     startPoint: geographyPoint('start_point').notNull(),
     distanceM: integer('distance_m').notNull(),
     elevationGainM: integer('elevation_gain_m'),
     gpxUrl: text('gpx_url'),
+    /** Recorrido publicado en Relive, Strava, Wikiloc… */
+    externalMapUrl: text('external_map_url'),
     createdBy: uuid('created_by'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -103,6 +107,12 @@ export const circuits = pgTable(
     check('circuits_difficulty_check', sql`${t.difficulty} in ('facil','intermedio','dificil','extremo')`),
     check('circuits_access_type_check', sql`${t.accessType} in ('libre','con_permiso','pago')`),
     check('circuits_status_check', sql`${t.status} in ('draft','published','archived')`),
+    // un circuito tiene que poder mostrar algo: o su trazado o el recorrido de un
+    // tercero. Sin esta regla se pueden cargar fichas vacías.
+    check(
+      'circuits_track_o_enlace_check',
+      sql`${t.track} is not null or ${t.externalMapUrl} is not null`,
+    ),
     index('circuits_status_discipline_province_idx').on(t.status, t.disciplineId, t.provinceId),
     index('circuits_start_point_gist_idx').using('gist', t.startPoint),
     index('circuits_track_gist_idx').using('gist', t.track),

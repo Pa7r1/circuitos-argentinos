@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import type { CircuitDetail } from '@circuitos/shared';
+import type { CircuitDetail, GeoJsonLineString } from '@circuitos/shared';
 import { DISCIPLINES } from '@circuitos/shared';
 import {
   ACCESS_LABEL,
@@ -11,6 +11,7 @@ import {
 } from '../../lib/format';
 import { api, API_URL, RequestError } from '../../lib/api';
 import { Button, ButtonLink } from '../../components/Button';
+import { ExternalMapEmbed } from '../../components/ExternalMapEmbed';
 import { MapLayerToggle } from '../../components/MapLayerToggle';
 import { type MapLayer } from '../../lib/map-style';
 import { useCircuitDetail } from '../../lib/queries';
@@ -20,7 +21,7 @@ import { useSlowRequest } from '../../lib/use-slow-request';
 import { useToast } from '../../components/Toast';
 import { AuthModal } from '../auth/AuthModal';
 
-function TrackMap({ circuit }: { circuit: CircuitDetail }) {
+function TrackMap({ circuit, track }: { circuit: CircuitDetail; track: GeoJsonLineString }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const applyLayerRef = useRef<((layer: MapLayer) => void) | null>(null);
   const [layer, setLayer] = useState<MapLayer>('satelite');
@@ -32,7 +33,7 @@ function TrackMap({ circuit }: { circuit: CircuitDetail }) {
 
   useEffect(() => {
     if (!L) return;
-    const latLngs = circuit.track.coordinates.map((c) => [c[1], c[0]] as [number, number]);
+    const latLngs = track.coordinates.map((c) => [c[1], c[0]] as [number, number]);
     const map = L.map(containerRef.current!, MAP_OPTIONS);
     applyLayerRef.current = createBaseLayers(L, map, layer);
 
@@ -56,8 +57,8 @@ function TrackMap({ circuit }: { circuit: CircuitDetail }) {
       map.remove();
       applyLayerRef.current = null;
     };
-     
-  }, [circuit, L]);
+
+  }, [circuit, track, L]);
 
   return (
     <div className="relative">
@@ -180,7 +181,14 @@ export function CircuitPage() {
         </Link>
       </nav>
 
-      <TrackMap circuit={circuit} />
+      {/* trazado propio si vino de un GPX; si no, el recorrido publicado en otra app */}
+      {circuit.track ? (
+        <TrackMap circuit={circuit} track={circuit.track} />
+      ) : (
+        circuit.externalMapUrl && (
+          <ExternalMapEmbed url={circuit.externalMapUrl} className="px-4 pt-1" />
+        )
+      )}
 
       <div className="p-4">
         <div className="mb-4">
@@ -234,9 +242,17 @@ export function CircuitPage() {
 
         <div className="mb-6 grid gap-2 sm:grid-cols-2">
           {/* una sola acción primaria: llegar. Bajar el GPX es para después */}
-          <ButtonLink to={directionsUrl} variante="primary" tamano="lg" ancho>
+          <ButtonLink
+            to={directionsUrl}
+            variante="primary"
+            tamano="lg"
+            ancho
+            className={circuit.hasGpx ? '' : 'sm:col-span-2'}
+          >
             Cómo llegar
           </ButtonLink>
+          {/* sin archivo no se ofrece la descarga: sería un botón que da error */}
+          {circuit.hasGpx && (
           <Button
             variante="secondary"
             tamano="lg"
@@ -257,10 +273,21 @@ export function CircuitPage() {
           >
             Descargar GPX
           </Button>
-          <p className="text-xs text-stone-500 sm:col-span-2">
-            El GPX se abre en Strava, Relive, Wikiloc o tu GPS.
-          </p>
+          )}
+          {circuit.hasGpx && (
+            <p className="text-xs text-stone-500 sm:col-span-2">
+              El GPX se abre en Strava, Relive, Wikiloc o tu GPS.
+            </p>
+          )}
         </div>
+
+        {/* si el circuito tiene trazado propio y además enlace, van los dos */}
+        {circuit.track && circuit.externalMapUrl && (
+          <section className="mb-6">
+            <h2 className="mb-2 text-lg font-semibold">Recorrido en video</h2>
+            <ExternalMapEmbed url={circuit.externalMapUrl} />
+          </section>
+        )}
 
         {circuit.schedules.length > 0 && (
           <section className="mb-6">

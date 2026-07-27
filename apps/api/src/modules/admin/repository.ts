@@ -1,5 +1,10 @@
 import { sql, type SQL } from 'drizzle-orm';
-import type { AdminCircuitDetail, AdminCircuitListItem, ScheduleInput } from '@circuitos/shared';
+import type {
+  AdminCircuitDetail,
+  AdminCircuitListItem,
+  GeoJsonPoint,
+  ScheduleInput,
+} from '@circuitos/shared';
 import type { Db } from '../../db/index.js';
 
 export interface CircuitInsert {
@@ -12,11 +17,13 @@ export interface CircuitInsert {
   difficulty: string;
   accessType: string;
   accessNotes: string | null;
-  trackWkt: string;
+  /** null cuando el circuito se carga con un enlace en vez de un GPX. */
+  trackWkt: string | null;
   startWkt: string;
   distanceM: number;
   elevationGainM: number | null;
-  gpxUrl: string;
+  gpxUrl: string | null;
+  externalMapUrl: string | null;
   schedules: ScheduleInput[];
 }
 
@@ -35,6 +42,7 @@ export interface CircuitUpdateSets {
   distanceM?: number;
   elevationGainM?: number | null;
   gpxUrl?: string;
+  externalMapUrl?: string | null;
   schedules?: ScheduleInput[];
 }
 
@@ -83,7 +91,9 @@ export function adminRepository(db: Db) {
       const rows = (await db.execute(sql`
         SELECT c.id, c.slug, c.name, c.description, d.slug AS discipline, p.slug AS province,
                c.locality, c.difficulty, c.access_type, c.access_notes, c.status,
-               c.distance_m, c.elevation_gain_m
+               c.distance_m, c.elevation_gain_m, c.external_map_url,
+               ST_AsGeoJSON(c.start_point) AS start_point,
+               c.track IS NOT NULL AS has_track
         FROM circuits c
         JOIN disciplines d ON d.id = c.discipline_id
         JOIN provinces p ON p.id = c.province_id
@@ -115,6 +125,9 @@ export function adminRepository(db: Db) {
         status: row.status as AdminCircuitDetail['status'],
         distanceM: row.distance_m as number,
         elevationGainM: row.elevation_gain_m as number | null,
+        externalMapUrl: row.external_map_url as string | null,
+        startPoint: JSON.parse(row.start_point as string) as GeoJsonPoint,
+        hasTrack: row.has_track as boolean,
         schedules: schedules.map((s) => ({
           dayOfWeek: s.day_of_week,
           opens: s.opens?.slice(0, 5) ?? null,
@@ -155,13 +168,15 @@ export function adminRepository(db: Db) {
           INSERT INTO circuits
             (slug, name, description, discipline_id, province_id, locality, difficulty,
              access_type, access_notes, status, track, start_point, distance_m,
-             elevation_gain_m, gpx_url)
+             elevation_gain_m, gpx_url, external_map_url)
           VALUES
             (${data.slug}, ${data.name}, ${data.description}, ${data.disciplineId},
              ${data.provinceId}, ${data.locality}, ${data.difficulty}, ${data.accessType},
-             ${data.accessNotes}, 'draft', ST_GeogFromText(${data.trackWkt}),
+             ${data.accessNotes}, 'draft',
+             -- ST_GeogFromText(NULL) es NULL, así que el circuito sin GPX entra igual
+             ST_GeogFromText(${data.trackWkt}),
              ST_GeogFromText(${data.startWkt}), ${data.distanceM}, ${data.elevationGainM},
-             ${data.gpxUrl})
+             ${data.gpxUrl}, ${data.externalMapUrl})
           RETURNING id, slug
         `)) as unknown as { id: string; slug: string }[];
         const created = rows[0]!;
@@ -185,6 +200,7 @@ export function adminRepository(db: Db) {
         ['distanceM', sql`distance_m = ${sets.distanceM}`],
         ['elevationGainM', sql`elevation_gain_m = ${sets.elevationGainM}`],
         ['gpxUrl', sql`gpx_url = ${sets.gpxUrl}`],
+        ['externalMapUrl', sql`external_map_url = ${sets.externalMapUrl}`],
       ];
       for (const [key, fragment] of map) {
         if (sets[key] !== undefined) fragments.push(fragment);

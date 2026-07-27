@@ -1,7 +1,14 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { AdminCircuitDetail, ScheduleInput } from '@circuitos/shared';
-import { ACCESS_TYPES, DIFFICULTIES, DISCIPLINES, PROVINCES } from '@circuitos/shared';
+import {
+  ACCESS_TYPES,
+  DIFFICULTIES,
+  DISCIPLINES,
+  PROVINCES,
+  resolveExternalMap,
+} from '@circuitos/shared';
+import { LocationPicker } from './LocationPicker';
 import { Button } from '../../components/Button';
 import { Field, SelectField } from '../../components/Field';
 import { useToast } from '../../components/Toast';
@@ -36,6 +43,28 @@ export function CircuitForm({ editing, onDone }: Props) {
   const [schedules, setSchedules] = useState<ScheduleInput[]>(editing?.schedules ?? []);
   const [gpxFile, setGpxFile] = useState<File | null>(null);
   const [gpxCoords, setGpxCoords] = useState<[number, number][] | null>(null);
+
+  // Desde Relive o Strava no se puede exportar el GPX, así que el camino del
+  // enlace es el habitual y viene elegido de entrada.
+  const [origen, setOrigen] = useState<'enlace' | 'gpx'>(
+    editing?.hasTrack ? 'gpx' : 'enlace',
+  );
+  const [externalMapUrl, setExternalMapUrl] = useState(editing?.externalMapUrl ?? '');
+  const [punto, setPunto] = useState<[number, number] | null>(
+    editing ? editing.startPoint.coordinates : null,
+  );
+  const [km, setKm] = useState(
+    editing && !editing.hasTrack ? String(editing.distanceM / 1000).replace('.', ',') : '',
+  );
+  const [desnivel, setDesnivel] = useState(
+    editing?.elevationGainM !== null && editing?.elevationGainM !== undefined
+      ? String(editing.elevationGainM)
+      : '',
+  );
+
+  const mapaExterno = resolveExternalMap(externalMapUrl);
+  const enlaceInvalido = externalMapUrl.trim() !== '' && mapaExterno === null;
+  const metros = Math.round(Number(km.replace(',', '.')) * 1000);
   const [photos, setPhotos] = useState<File[]>([]);
   const [dragging, setDragging] = useState(false);
   const [borradas, setBorradas] = useState<string[]>([]);
@@ -62,15 +91,29 @@ export function CircuitForm({ editing, onDone }: Props) {
         accessNotes: accessNotes || undefined,
         schedules,
       };
+      // datos que aporta el enlace y que el GPX calcularía solo
+      const porEnlace =
+        origen === 'enlace'
+          ? {
+              externalMapUrl: externalMapUrl.trim(),
+              startLat: punto![1],
+              startLon: punto![0],
+              distanceM: metros,
+              ...(desnivel ? { elevationGainM: Number(desnivel) } : {}),
+            }
+          : {};
+
       let circuitId: string;
       if (editing) {
-        await api.admin.update(editing.id, fields);
+        await api.admin.update(editing.id, { ...fields, ...porEnlace });
         circuitId = editing.id;
       } else {
-        if (!gpxFile) throw new Error('Falta el archivo GPX');
         const form = new FormData();
-        form.append('gpx', gpxFile);
-        for (const [key, value] of Object.entries(fields)) {
+        if (origen === 'gpx') {
+          if (!gpxFile) throw new Error('Falta el archivo GPX');
+          form.append('gpx', gpxFile);
+        }
+        for (const [key, value] of Object.entries({ ...fields, ...porEnlace })) {
           if (value === undefined) continue;
           form.append(key, key === 'schedules' ? JSON.stringify(value) : String(value));
         }
@@ -101,14 +144,109 @@ export function CircuitForm({ editing, onDone }: Props) {
       className="space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
-        if (!editing && (!gpxCoords || gpxCoords.length < 2)) {
-          toast('Cargá un GPX válido antes de guardar');
-          return;
+        if (origen === 'gpx') {
+          if (!editing && (!gpxCoords || gpxCoords.length < 2)) {
+            toast('Cargá un GPX válido antes de guardar');
+            return;
+          }
+        } else {
+          if (!mapaExterno) {
+            toast('Pegá el enlace del recorrido (tiene que empezar con https://)');
+            return;
+          }
+          if (!punto) {
+            toast('Marcá en el mapa dónde arranca el circuito');
+            return;
+          }
+          if (!Number.isFinite(metros) || metros <= 0) {
+            toast('Cargá la distancia del circuito en kilómetros');
+            return;
+          }
         }
         mutation.mutate();
       }}
     >
       {!editing && (
+        <div
+          className="flex gap-1 rounded-lg bg-stone-100 p-1"
+          role="group"
+          aria-label="De dónde sale el recorrido"
+        >
+          {(
+            [
+              ['enlace', 'Tengo el enlace'],
+              ['gpx', 'Tengo el archivo GPX'],
+            ] as const
+          ).map(([valor, texto]) => (
+            <button
+              key={valor}
+              type="button"
+              aria-pressed={origen === valor}
+              onClick={() => setOrigen(valor)}
+              className={`min-h-11 flex-1 rounded-md text-sm font-medium transition-colors ${
+                origen === valor ? 'bg-white shadow-card' : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              {texto}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {origen === 'enlace' && (
+        <>
+          <Field
+            label="Enlace al recorrido *"
+            id="externalMapUrl"
+            type="url"
+            inputMode="url"
+            placeholder="https://www.relive.com/view/…"
+            value={externalMapUrl}
+            onChange={(e) => setExternalMapUrl(e.target.value)}
+            error={enlaceInvalido ? 'Tiene que ser un enlace que empiece con https://' : undefined}
+            ayuda={
+              mapaExterno ? (
+                mapaExterno.embedUrl ? (
+                  <span className="font-medium text-green-700">
+                    Reconocí {mapaExterno.providerName}: el recorrido se va a ver dentro de la ficha.
+                  </span>
+                ) : (
+                  <span className="text-stone-600">
+                    {mapaExterno.providerName} no permite mostrarlo acá dentro: va a quedar como
+                    enlace.
+                  </span>
+                )
+              ) : (
+                'Relive, Strava, Wikiloc, Komoot o Google My Maps. Cualquier otro sitio queda como enlace.'
+              )
+            }
+          />
+
+          <LocationPicker value={punto} onChange={setPunto} />
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field
+              label="Distancia (km) *"
+              id="km"
+              inputMode="decimal"
+              placeholder="12,5"
+              value={km}
+              onChange={(e) => setKm(e.target.value)}
+              ayuda="El número que muestra la app del recorrido."
+            />
+            <Field
+              label="Desnivel (m)"
+              id="desnivel"
+              inputMode="numeric"
+              placeholder="340"
+              value={desnivel}
+              onChange={(e) => setDesnivel(e.target.value.replace(/\D/g, ''))}
+            />
+          </div>
+        </>
+      )}
+
+      {origen === 'gpx' && !editing && (
         <div>
           <label htmlFor="gpx" className="mb-1 block text-sm font-medium">
             Archivo GPX *
