@@ -98,7 +98,10 @@ export function circuitsRepository(db: Db) {
                ST_AsGeoJSON(c.start_point) AS start_point,
                -- null en los circuitos cargados con enlace, que no tienen trazado
                ST_AsGeoJSON(c.track) AS track,
-               c.gpx_url IS NOT NULL AS has_gpx
+               -- se pregunta por el archivo, no por gpx_url: en producción hay
+               -- filas con el GPX guardado y esa columna en null, y la descarga
+               -- desaparecía de una ficha que sí tenía archivo
+               EXISTS (SELECT 1 FROM circuit_gpx g WHERE g.circuit_id = c.id) AS has_gpx
         FROM circuits c
         JOIN disciplines d ON d.id = c.discipline_id
         JOIN provinces p ON p.id = c.province_id

@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { sql } from 'drizzle-orm';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -37,6 +38,7 @@ function multipart(parts: { name: string; data: Buffer | string; filename?: stri
 
 let app: FastifyInstance;
 let client: ReturnType<typeof createDb>['client'];
+let db: ReturnType<typeof createDb>['db'];
 let token: string;
 /** sesión de usuario común: la ficha ahora exige registro */
 let userAuth: { authorization: string };
@@ -57,6 +59,7 @@ beforeAll(async () => {
 
   const created = createDb(testUrl);
   client = created.client;
+  db = created.db;
   app = await buildApp(config, created.db);
 
   const registro = await app.inject({
@@ -257,6 +260,24 @@ describe('flujo admin completo', () => {
     ]);
     expect(detail.accessType).toBe('con_permiso');
     expect(detail.elevationGainM).toBe(41);
+    expect(detail.hasGpx).toBe(true);
+    expect(detail.track?.coordinates.length).toBeGreaterThan(1);
+  });
+
+  /**
+   * En producción hay circuitos con el GPX guardado y `gpx_url` en null. Si el
+   * indicador se calculara con esa columna, la descarga desaparecería de una
+   * ficha que sí tiene archivo.
+   */
+  it('hasGpx mira el archivo guardado, no la columna gpx_url', async () => {
+    await db.execute(sql`UPDATE circuits SET gpx_url = NULL WHERE id = ${circuitId}`);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/v1/circuits/${circuitSlug}`,
+      headers: userAuth,
+    });
+    expect(res.json<CircuitDetail>().hasGpx).toBe(true);
   });
 
   it('sube una imagen válida y rechaza un archivo que no es imagen', async () => {
