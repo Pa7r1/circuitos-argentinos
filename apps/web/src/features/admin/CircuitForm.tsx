@@ -26,7 +26,7 @@ interface Props {
 
 /** Los textarea no pasan por `Field`, pero comparten su aspecto. */
 const textareaClass =
-  'w-full rounded-lg border border-stone-300 px-3 py-2.5 text-base transition-colors focus:border-brand-600 placeholder:text-stone-400';
+  'w-full rounded-xl bg-white/8 px-3 py-2.5 text-base text-white ring-1 ring-white/12 transition-[background-color,box-shadow] duration-[var(--duracion-rapida)] focus:bg-white/12 focus:ring-2 focus:ring-brand-400 focus:outline-none placeholder:text-white/40';
 
 export function CircuitForm({ editing, onDone }: Props) {
   const queryClient = useQueryClient();
@@ -168,7 +168,7 @@ export function CircuitForm({ editing, onDone }: Props) {
     >
       {!editing && (
         <div
-          className="flex gap-1 rounded-lg bg-stone-100 p-1"
+          className="flex gap-1 rounded-xl bg-white/8 p-1 ring-1 ring-white/10"
           role="group"
           aria-label="De dónde sale el recorrido"
         >
@@ -184,7 +184,7 @@ export function CircuitForm({ editing, onDone }: Props) {
               aria-pressed={origen === valor}
               onClick={() => setOrigen(valor)}
               className={`min-h-11 flex-1 rounded-md text-sm font-medium transition-colors ${
-                origen === valor ? 'bg-white shadow-card' : 'text-stone-600 hover:text-stone-900'
+                origen === valor ? 'bg-white/15 text-white shadow-card' : 'text-white/60 hover:text-white'
               }`}
             >
               {texto}
@@ -211,7 +211,7 @@ export function CircuitForm({ editing, onDone }: Props) {
                     Reconocí {mapaExterno.providerName}: el recorrido se va a ver dentro de la ficha.
                   </span>
                 ) : (
-                  <span className="text-stone-600">
+                  <span className="text-white/65">
                     {mapaExterno.providerName} no permite mostrarlo acá dentro: va a quedar como
                     enlace.
                   </span>
@@ -264,7 +264,7 @@ export function CircuitForm({ editing, onDone }: Props) {
               if (file) void handleGpx(file);
             }}
             className={`rounded-lg border-2 border-dashed p-4 text-center text-sm ${
-              dragging ? 'border-brand-600 bg-brand-50' : 'border-stone-300'
+              dragging ? 'border-brand-400 bg-brand-400/12' : 'border-white/20'
             }`}
           >
             <p className="mb-2">{gpxFile ? gpxFile.name : 'Arrastrá el GPX acá, o'}</p>
@@ -354,7 +354,7 @@ export function CircuitForm({ editing, onDone }: Props) {
       />
 
       <div>
-        <label htmlFor="accessNotes" className="mb-1 block text-sm font-medium text-stone-700">
+        <label htmlFor="accessNotes" className="mb-1.5 block text-sm font-medium text-white/80">
           Notas de acceso
         </label>
         <textarea
@@ -368,7 +368,7 @@ export function CircuitForm({ editing, onDone }: Props) {
       </div>
 
       <div>
-        <label htmlFor="description" className="mb-1 block text-sm font-medium text-stone-700">
+        <label htmlFor="description" className="mb-1.5 block text-sm font-medium text-white/80">
           Descripción
         </label>
         <textarea
@@ -388,7 +388,7 @@ export function CircuitForm({ editing, onDone }: Props) {
               aria-label="Día"
               value={s.dayOfWeek}
               onChange={(e) => updateSchedule(i, { dayOfWeek: Number(e.target.value) })}
-              className="rounded-lg border border-stone-300 px-2 py-2"
+              className="rounded-xl bg-white/8 px-2 py-2 text-white ring-1 ring-white/12"
             >
               {DAY_LABEL.map((d, day) => (
                 <option key={day} value={day}>
@@ -401,14 +401,14 @@ export function CircuitForm({ editing, onDone }: Props) {
               aria-label="Abre"
               value={s.opens ?? ''}
               onChange={(e) => updateSchedule(i, { opens: e.target.value || null })}
-              className="rounded-lg border border-stone-300 px-2 py-2"
+              className="rounded-xl bg-white/8 px-2 py-2 text-white ring-1 ring-white/12"
             />
             <input
               type="time"
               aria-label="Cierra"
               value={s.closes ?? ''}
               onChange={(e) => updateSchedule(i, { closes: e.target.value || null })}
-              className="rounded-lg border border-stone-300 px-2 py-2"
+              className="rounded-xl bg-white/8 px-2 py-2 text-white ring-1 ring-white/12"
             />
             <Button
               type="button"
@@ -480,14 +480,14 @@ export function CircuitForm({ editing, onDone }: Props) {
           className="block text-sm"
         />
         {photos.length > 0 && (
-          <p className="mt-1 text-sm text-stone-600">
+          <p className="mt-1 text-sm text-white/65">
             {photos.length} foto(s) para subir. Se redimensionan solas antes de enviarlas.
           </p>
         )}
       </div>
 
       {/* pegado abajo: en el alta el formulario es largo y el guardar quedaba lejos */}
-      <div className="sticky bottom-0 -mx-4 flex gap-2 border-t border-stone-200 bg-white px-4 py-3">
+      <div className="flotante sticky bottom-0 -mx-5 mt-2 flex gap-2 rounded-none px-5 py-3">
         <Button
           type="submit"
           variante="primary"

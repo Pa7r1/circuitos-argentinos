@@ -47,7 +47,7 @@ export function GpxPreview({ coordinates }: { coordinates: [number, number][] })
 
   if (error) {
     return (
-      <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">
+      <p className="rounded-xl border border-red-400/30 bg-red-500/12 p-3 text-sm text-red-200">
         El GPX no contiene un track con al menos 2 puntos.
       </p>
     );
@@ -55,7 +55,7 @@ export function GpxPreview({ coordinates }: { coordinates: [number, number][] })
   return (
     <div
       ref={containerRef}
-      className="h-48 w-full rounded-lg bg-stone-300"
+      className="h-48 w-full rounded-xl bg-stone-800 ring-1 ring-white/10"
       aria-label="Vista previa del trazado"
     />
   );

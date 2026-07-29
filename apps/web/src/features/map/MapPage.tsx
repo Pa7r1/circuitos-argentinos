@@ -11,7 +11,7 @@ import { useToast } from '../../components/Toast';
 import {
   ACCESS_LABEL,
   DIFFICULTY_LABEL,
-  DIFFICULTY_ON_DARK,
+  DIFFICULTY_TEXT,
   DISCIPLINE_COLOR,
   DISCIPLINE_LETTER,
   formatDistanceAway,
@@ -257,11 +257,19 @@ export function MapPage() {
   return (
     <main className="relative h-full">
       <h1 className="sr-only">Circuitos Argentinos — mapa de circuitos off-road</h1>
-      <div ref={containerRef} className="h-full w-full bg-stone-300" aria-label="Mapa de circuitos" />
+      <div ref={containerRef} className="h-full w-full bg-stone-800" aria-label="Mapa de circuitos" />
 
       {/* panel flotante: buscador y cuenta arriba, filtros y resultado debajo */}
       <div className="absolute top-3 left-1/2 z-[500] w-[95%] max-w-xl -translate-x-1/2 space-y-2">
-        <div className="flotante flex items-center gap-2 rounded-2xl p-2">
+        {/*
+          El z-index va explícito acá y en la fila de chips de abajo, y no se puede
+          sacar: `flotante` usa `backdrop-blur`, y `backdrop-filter` CREA UN CONTEXTO
+          DE APILADO. Eso encierra el z-index del desplegable de resultados dentro de
+          esta cápsula, así que dejaba de competir con los chips; como los chips vienen
+          después en el DOM y también tienen backdrop-filter, se pintaban encima y
+          tapaban la lista. Con z-index propio, el orden deja de depender del DOM.
+        */}
+        <div className="flotante relative z-20 flex items-center gap-2 rounded-2xl p-2">
           <PlaceSearch selected={place} onSelect={selectPlace} onClear={clearPlace} />
           {/*
             El resultado del filtro vive dentro de la barra y no en una píldora aparte:
@@ -283,7 +291,7 @@ export function MapPage() {
           <AccountButton onPedirCuenta={() => setPedirCuenta({})} />
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="relative z-10 flex flex-wrap items-center gap-1.5">
           <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrar por disciplina">
             {DISCIPLINES.map((d) => (
               <DisciplineChip
@@ -398,7 +406,7 @@ export function MapPage() {
             </div>
             <div>
               <dd
-                className={`text-lg leading-tight font-bold ${DIFFICULTY_ON_DARK[selected.difficulty]}`}
+                className={`text-lg leading-tight font-bold ${DIFFICULTY_TEXT[selected.difficulty]}`}
               >
                 {DIFFICULTY_LABEL[selected.difficulty]}
               </dd>

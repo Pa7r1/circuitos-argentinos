@@ -65,7 +65,7 @@ export function LocationPicker({
 
   return (
     <div>
-      <p className="mb-1 block text-sm font-medium text-stone-700">Dónde arranca el circuito *</p>
+      <p className="mb-1.5 block text-sm font-medium text-white/80">Dónde arranca el circuito *</p>
       <div className="mb-2 flex items-center gap-2">
         <PlaceSearch
           selected={place}
@@ -78,10 +78,10 @@ export function LocationPicker({
       </div>
       <div
         ref={containerRef}
-        className="h-64 w-full rounded-lg bg-stone-300"
+        className="h-64 w-full rounded-xl bg-stone-800 ring-1 ring-white/10"
         aria-label="Mapa para marcar el punto de partida"
       />
-      <p className="mt-1 text-xs text-stone-500">
+      <p className="mt-1.5 text-xs text-white/55">
         {value
           ? `Punto elegido: ${value[1].toFixed(5)}, ${value[0].toFixed(5)}. Tocá de nuevo para corregirlo.`
           : 'Buscá la localidad y tocá el mapa donde arranca el circuito.'}

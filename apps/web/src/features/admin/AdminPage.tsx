@@ -15,9 +15,9 @@ import { useSession } from '../../lib/use-session';
 import { CircuitForm } from './CircuitForm';
 
 const STATUS_STYLE: Record<CircuitStatus, string> = {
-  draft: 'bg-stone-200 text-stone-700',
-  published: 'bg-green-100 text-green-800',
-  archived: 'bg-red-100 text-red-800',
+  draft: 'bg-white/12 text-white/75',
+  published: 'bg-green-500/15 text-green-300',
+  archived: 'bg-red-500/15 text-red-300',
 };
 
 const FILTROS: (CircuitStatus | 'todos')[] = ['todos', 'published', 'draft', 'archived'];
@@ -57,7 +57,7 @@ function LoginForm() {
     <main className="mx-auto flex min-h-full max-w-sm flex-col justify-center p-6">
       <div className="tarjeta p-6">
         <h1 className="titulo text-xl">Panel de administración</h1>
-        <p className="mt-1 mb-5 text-sm text-stone-600">
+        <p className="mt-1 mb-5 text-sm text-white/65">
           Entrá con la misma cuenta que usás en el mapa.
         </p>
         <form
@@ -95,7 +95,7 @@ function LoginForm() {
       </div>
       <Link
         to="/"
-        className="mt-4 block py-2 text-center text-sm font-medium text-stone-600 hover:text-stone-900"
+        className="mt-4 block py-2 text-center text-sm font-medium text-white/65 hover:text-white"
       >
         ← Volver al mapa
       </Link>
@@ -112,8 +112,8 @@ function SinPermisos({ nombre }: { nombre: string }) {
     <main className="mx-auto flex min-h-full max-w-sm flex-col justify-center p-6 text-center">
       <div className="tarjeta p-6">
         <h1 className="mb-2 titulo text-xl">No tenés acceso al panel</h1>
-        <p className="mb-6 text-sm text-stone-600">
-          Entraste como <strong className="text-stone-900">{nombre}</strong>, una cuenta sin
+        <p className="mb-6 text-sm text-white/65">
+          Entraste como <strong className="text-white">{nombre}</strong>, una cuenta sin
           permisos de administración.
         </p>
         <Button variante="primary" tamano="lg" ancho onClick={() => clearSession()}>
@@ -122,7 +122,7 @@ function SinPermisos({ nombre }: { nombre: string }) {
       </div>
       <Link
         to="/"
-        className="mt-4 block py-2 text-center text-sm font-medium text-stone-600 hover:text-stone-900"
+        className="mt-4 block py-2 text-center text-sm font-medium text-white/65 hover:text-white"
       >
         ← Volver al mapa
       </Link>
@@ -147,7 +147,7 @@ function Resumen() {
     <dl className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
       {items.map(([label, valor]) => (
         <div key={label} className="tarjeta px-4 py-3">
-          <dt className="text-xs font-medium tracking-wide text-stone-500 uppercase">{label}</dt>
+          <dt className="text-xs font-medium tracking-wide text-white/55 uppercase">{label}</dt>
           <dd className="mt-0.5 text-3xl font-bold tabular-nums">{valor ?? '—'}</dd>
         </div>
       ))}
@@ -210,7 +210,7 @@ export function AdminPage() {
   return (
     <div className="min-h-full">
       {/* barra de la aplicación: fija arriba, para no perder la salida al scrollear */}
-      <header className="sticky top-0 z-10 border-b border-stone-200 bg-white/95 backdrop-blur">
+      <header className="flotante sticky top-0 z-10 rounded-none">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 py-2">
           <h1 className="titulo text-lg">Administración</h1>
           <div className="flex items-center gap-1">
@@ -245,7 +245,7 @@ export function AdminPage() {
         </div>
 
         <div
-          className="mb-4 inline-flex rounded-lg border border-stone-200 bg-stone-100 p-1"
+          className="mb-4 inline-flex rounded-xl bg-white/8 p-1 ring-1 ring-white/10"
           role="group"
           aria-label="Filtrar por estado"
         >
@@ -256,8 +256,8 @@ export function AdminPage() {
               aria-pressed={filtro === f}
               className={`min-h-9 rounded-md px-3 text-sm font-medium transition-colors ${
                 filtro === f
-                  ? 'bg-white text-stone-900 shadow-card'
-                  : 'text-stone-600 hover:text-stone-900'
+                  ? 'bg-white/15 text-white shadow-card'
+                  : 'text-white/60 hover:text-white'
               }`}
             >
               {f === 'todos' ? 'Todos' : STATUS_LABEL[f]}
@@ -272,14 +272,14 @@ export function AdminPage() {
           </div>
         )}
         {isError && (
-          <p className="rounded-lg bg-red-50 p-3 text-red-800">No se pudo cargar el listado.</p>
+          <p className="rounded-xl border border-red-400/30 bg-red-500/12 p-3 text-red-200">No se pudo cargar el listado.</p>
         )}
         {!isPending && visibles.length === 0 && (
           <div className="tarjeta px-4 py-10 text-center">
-            <p className="font-medium text-stone-700">
+            <p className="font-medium text-white/80">
               {hayCircuitos ? 'Ningún circuito coincide con el filtro.' : 'Todavía no hay circuitos.'}
             </p>
-            <p className="mt-1 text-sm text-stone-500">
+            <p className="mt-1 text-sm text-white/55">
               {hayCircuitos
                 ? 'Probá con otro estado o borrá la búsqueda.'
                 : 'Cargá el primero con su archivo GPX y quedará listo para publicar.'}
@@ -292,8 +292,8 @@ export function AdminPage() {
             <li key={item.id} className="tarjeta p-4">
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate font-semibold text-stone-900">{item.name}</p>
-                  <p className="mt-0.5 text-sm text-stone-500">
+                  <p className="truncate font-semibold text-white">{item.name}</p>
+                  <p className="mt-0.5 text-sm text-white/55">
                     {nombreDisciplina(item.discipline)} · {nombreProvincia(item.province)} ·{' '}
                     {(item.distanceM / 1000).toFixed(1).replace('.', ',')} km
                   </p>
@@ -356,11 +356,11 @@ export function AdminPage() {
 
         {porArchivar && (
           <Modal title="¿Archivar este circuito?" onClose={() => setPorArchivar(null)}>
-            <p className="mb-1 text-stone-700">
-              <strong className="font-semibold text-stone-900">{porArchivar.name}</strong> va a dejar
+            <p className="mb-1 text-white/80">
+              <strong className="font-semibold text-white">{porArchivar.name}</strong> va a dejar
               de verse en el mapa.
             </p>
-            <p className="mb-5 text-sm text-stone-500">
+            <p className="mb-5 text-sm text-white/55">
               No se borra nada: podés volver a publicarlo cuando quieras desde el filtro
               «Archivado».
             </p>

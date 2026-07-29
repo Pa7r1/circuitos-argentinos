@@ -57,13 +57,13 @@ export function AuthModal({
   return (
     <Modal title={esRegistro ? 'Creá tu cuenta' : 'Ingresá a tu cuenta'} onClose={onClose}>
       {motivo && (
-        <p className="mb-4 rounded-xl border border-brand-200 bg-brand-50 p-3 text-sm text-brand-900">
+        <p className="mb-4 rounded-xl border border-brand-400/25 bg-brand-400/12 p-3 text-sm text-brand-100">
           {motivo}
         </p>
       )}
 
       <div
-        className="mb-5 flex gap-1 rounded-xl bg-stone-100 p-1"
+        className="mb-5 flex gap-1 rounded-xl bg-white/8 p-1 ring-1 ring-white/10"
         role="tablist"
         aria-label="Crear cuenta o ingresar"
       >
@@ -84,8 +84,8 @@ export function AuthModal({
             }}
             className={`min-h-11 flex-1 rounded-lg text-sm font-semibold transition-[color,background-color,box-shadow] duration-[var(--duracion-rapida)] ease-suave ${
               solapa === valor
-                ? 'bg-white text-stone-900 shadow-card'
-                : 'text-stone-500 hover:text-stone-800'
+                ? 'bg-white/15 text-white shadow-card'
+                : 'text-white/55 hover:text-white/85'
             }`}
           >
             {texto}
@@ -157,7 +157,7 @@ export function AuthModal({
         </Button>
 
         {esRegistro && (
-          <p className="text-center text-xs text-stone-500">
+          <p className="text-center text-xs text-white/50">
             Usamos tu email solo para tu cuenta. No lo compartimos con nadie.
           </p>
         )}
