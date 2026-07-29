@@ -3,10 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#ea580c" />
+    <meta name="theme-color" content="#0e7490" />
     <meta
       name="description"
       content="Descubrí circuitos off-road de enduro, motocross y MTB en Argentina"
+    />
+    <!--
+      La fuente se descubre recién cuando el CSS ya se descargó y se parseó. Con el
+      preload arranca junto con el resto y el texto no cambia de forma a mitad de la
+      carga. Se puede porque la servimos desde public/ con una URL fija.
+    -->
+    <link
+      rel="preload"
+      href="/fonts/archivo-variable-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
     />
     <!-- los tiles son lo primero que se ve: adelantamos DNS y TLS -->
     <link rel="preconnect" href="https://server.arcgisonline.com" />
