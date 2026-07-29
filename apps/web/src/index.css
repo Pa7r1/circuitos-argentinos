@@ -1,27 +1,85 @@
 @import 'tailwindcss';
 
 /*
- * Sistema visual. Tres decisiones que ordenan todo lo demás:
- *   1. El naranja es la acción. Se reserva para el único botón que queremos que
+ * Archivo, de Omnibus-Type (diseñada en Buenos Aires, licencia OFL: el texto está
+ * en public/fonts/archivo-LICENSE.txt). Grotesca de formas rectas y aperturas
+ * amplias: aguanta el sol y el rebote de la pantalla mejor que una humanista.
+ *
+ * Se sirve desde public/ y no desde el paquete de npm por dos motivos concretos:
+ *   1. La URL queda estable, así que se puede hacer `preload` de verdad. Con el
+ *      nombre con hash que genera el bundler, no se puede.
+ *   2. Va solo el subconjunto latino. El paquete declara además latin-ext y
+ *      vietnamita, reglas que este proyecto nunca usa.
+ *
+ * Es el eje de peso (100–900) y no el de ancho: la versión con ancho variable pesa
+ * 88 kB contra 35 kB. Un eje que se usaría en tres títulos no vale 53 kB en el
+ * arranque de una app que se abre con 4G en el cerro. El carácter de los títulos
+ * sale del peso y del tracking, que es gratis.
+ */
+@font-face {
+  font-family: 'Archivo Variable';
+  font-style: normal;
+  font-weight: 100 900;
+  /* swap: antes que texto invisible, texto con la fuente del sistema */
+  font-display: swap;
+  src: url('/fonts/archivo-variable-latin.woff2') format('woff2-variations');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+    U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/*
+ * Sistema visual. Cuatro decisiones que ordenan todo lo demás:
+ *   1. El cian es la acción. Se reserva para el único botón que queremos que
  *      la persona toque en cada pantalla; si se usa para todo, no dirige nada.
+ *      Por eso los chips de disciplina llevan el color solo en el punto: cuando el
+ *      chip entero se pintaba de naranja, azul y violeta, el acento no significaba
+ *      nada y la pantalla tenía cuatro cosas gritando a la vez.
  *   2. El resto es piedra (stone): fondos, bordes y texto secundario. La app se
  *      mira sobre fotos satelitales, así que la interfaz no compite con el mapa.
  *   3. Verde, ámbar y rojo significan estado (publicado, atención, destructivo)
  *      y no se usan decorativamente.
- * Sin modo oscuro a propósito: esto se usa al sol, con el teléfono al máximo brillo.
+ *   4. El cromo que flota sobre el mapa es grafito translúcido; las pantallas de
+ *      contenido (ficha, panel) siguen claras. No es un modo oscuro: es que sobre
+ *      una foto satelital —que es clara y de medios tonos— el blanco al 95 % tiene
+ *      MENOS contra qué recortarse que el grafito, no más. Al sol se lee mejor así.
  */
 @theme {
-  --color-brand-50: #fff7ed;
-  --color-brand-100: #ffedd5;
-  --color-brand-200: #fed7aa;
-  --color-brand-400: #fb923c;
-  --color-brand-500: #f97316;
-  --color-brand-600: #ea580c;
-  --color-brand-700: #c2410c;
-  --color-brand-800: #9a3412;
-  --color-brand-900: #7c2d12;
+  /*
+   * Cian profundo. Es el complementario del ocre del terreno, así que es el color
+   * que más se recorta sobre la foto satelital sin necesidad de saturarlo. El
+   * naranja anterior competía con el propio mapa: la tierra, los techos y los
+   * caminos ya son naranjas, y la acción se perdía entre ellos.
+   *
+   * Los botones usan el 700 y no el 600 por contraste medido: blanco sobre el 600
+   * da 3,68:1 y AA pide 4,5:1. El 700 da 5,36:1.
+   */
+  --color-brand-50: #ecfeff;
+  --color-brand-100: #cffafe;
+  --color-brand-200: #a5f3fc;
+  --color-brand-400: #22d3ee;
+  --color-brand-500: #06b6d4;
+  --color-brand-600: #0891b2;
+  --color-brand-700: #0e7490;
+  --color-brand-800: #155e75;
+  --color-brand-900: #164e63;
 
   --color-ink-900: #1c1917;
+
+  /*
+   * Superficie del cromo flotante. El alfa es alto (0.86) a propósito: por debajo
+   * de ~0.8 la foto satelital se cuela y el texto blanco empieza a pelearse con
+   * los ocres del terreno. El blur está para suavizar ese fondo, no para dejarlo ver.
+   */
+  --color-superficie: oklch(0.19 0.008 60 / 0.86);
+  --color-superficie-solida: oklch(0.19 0.008 60);
+
+  /*
+   * Una sola familia. Los títulos se separan por peso y tracking, no por otra
+   * fuente: dos familias en una app de mapa es ruido y una descarga más.
+   */
+  --font-sans:
+    'Archivo Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   /* tarjetas sobre fondo claro */
   --shadow-card: 0 1px 2px rgb(28 25 23 / 0.06), 0 1px 3px rgb(28 25 23 / 0.1);
@@ -31,6 +89,40 @@
   --shadow-sheet: 0 -4px 24px rgb(28 25 23 / 0.18);
 }
 
+/*
+ * Movimiento. Existe como vocabulario compartido porque una interfaz donde cada
+ * componente elige su propia duración se siente descoordinada aunque cada pieza
+ * suelta esté bien.
+ *
+ * Regla: se anima solo `opacity`, `translate`, `scale` y `filter`. Todo eso lo
+ * resuelve el compositor; animar `width`, `top` o `margin` fuerza layout en cada
+ * cuadro y en un teléfono de gama media eso son fotogramas perdidos.
+ *
+ * `static` porque Tailwind descarta las variables del tema que todavía nadie usa:
+ * sin eso, `--duracion-lenta` simplemente no existía en el CSS servido hasta que
+ * alguien la escribiera, y un token de diseño que aparece y desaparece no sirve
+ * como referencia. Son seis propiedades: el costo es nulo.
+ *
+ * Las curvas usan el namespace --ease-* de Tailwind, así que además de la variable
+ * queda la utilidad (`ease-salida`). Las duraciones no tienen namespace propio en
+ * Tailwind v4: se consumen con `duration-[var(--duracion-media)]`.
+ */
+@theme static {
+  /* entradas: arranca rápido y frena largo. Lo que aparece se siente liviano. */
+  --ease-salida: cubic-bezier(0.16, 1, 0.3, 1);
+  /* salidas: al revés. Lo que se va no merece que lo miremos irse. */
+  --ease-entrada: cubic-bezier(0.4, 0, 1, 1);
+  /* cambios de estado que no entran ni salen (color, fondo, borde) */
+  --ease-suave: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* acuse de un toque: por debajo de ~100 ms no se percibe, por encima molesta */
+  --duracion-rapida: 120ms;
+  /* paneles, hojas y menús */
+  --duracion-media: 200ms;
+  /* transición entre pantallas */
+  --duracion-lenta: 320ms;
+}
+
 html,
 body,
 #root {
@@ -38,8 +130,22 @@ body,
 }
 
 body {
-  @apply bg-stone-100 text-stone-900 antialiased;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  @apply bg-stone-100 font-sans text-stone-900 antialiased;
+}
+
+/*
+ * Títulos. El peso 700 con el tracking apretado es lo que le da el aire deportivo
+ * que en otra tipografía daría un eje de ancho condensado; acá sale gratis.
+ * El ajuste óptico solo se aplica de 24 px para arriba, que es donde el espaciado
+ * por defecto empieza a verse suelto.
+ */
+h1,
+h2 {
+  text-wrap: balance;
+}
+
+@utility titulo {
+  @apply font-bold tracking-[-0.02em];
 }
 
 /*
@@ -52,9 +158,16 @@ body {
   border-radius: 0.35rem;
 }
 
-/** Superficie apoyada sobre el mapa: translúcida pero siempre legible. */
+/**
+ * Superficie apoyada sobre el mapa: translúcida pero siempre legible.
+ *
+ * El aro claro por dentro (`inset`) es lo que despega el panel de la foto cuando
+ * el terreno de abajo es oscuro; la sombra sola no alcanza, porque una sombra
+ * sobre un fondo oscuro no se ve.
+ */
 @utility flotante {
-  @apply bg-white/95 shadow-float ring-1 ring-black/5 backdrop-blur;
+  background-color: var(--color-superficie);
+  @apply text-white shadow-float ring-1 ring-white/12 backdrop-blur-md;
 }
 
 /** Tarjeta de contenido sobre fondo claro. */
@@ -73,21 +186,93 @@ body {
   animation: pulse-soft 1.5s ease-in-out infinite;
 }
 
+/*
+ * `translate` y no `transform`: es una propiedad independiente, así que animarla
+ * no pisa un `transform` que ya esté puesto en el mismo elemento. Es la misma
+ * trampa por la que los pines del mapa se resaltan con `scale` y no con
+ * `transform` (Leaflet usa `transform` para posicionar).
+ */
 @keyframes subir-hoja {
   from {
-    transform: translateY(12px);
+    translate: 0 14px;
     opacity: 0;
   }
 }
 
 .hoja {
-  animation: subir-hoja 180ms ease-out;
+  animation: subir-hoja var(--duracion-media) var(--ease-salida);
 }
 
+/* el aviso entra desde arriba, que es de donde viene */
+@keyframes bajar-aviso {
+  from {
+    translate: 0 -14px;
+    opacity: 0;
+  }
+}
+
+.aviso {
+  animation: bajar-aviso var(--duracion-media) var(--ease-salida);
+}
+
+/*
+ * Modal. El fondo se funde y el panel sube desde abajo en el teléfono, donde el
+ * modal es una hoja, y aparece en el lugar en pantallas grandes.
+ *
+ * Solo entrada: React desmonta el nodo apenas cambia el estado, así que una
+ * animación de salida necesita retener el elemento montado. Se resuelve en la
+ * iteración del sistema de presencia, no acá.
+ */
+@keyframes fundir {
+  from {
+    opacity: 0;
+  }
+}
+
+.fondo-modal {
+  animation: fundir var(--duracion-media) var(--ease-suave);
+}
+
+@keyframes subir-panel {
+  from {
+    translate: 0 24px;
+    opacity: 0;
+  }
+}
+
+.panel-modal {
+  animation: subir-panel var(--duracion-media) var(--ease-salida);
+}
+
+@media (min-width: 40rem) {
+  @keyframes subir-panel {
+    from {
+      scale: 0.97;
+      opacity: 0;
+    }
+  }
+}
+
+/*
+ * Movimiento reducido, en una sola regla y para toda la app.
+ *
+ * Antes esto listaba `.hoja, .skeleton` a mano: cada animación nueva había que
+ * acordarse de sumarla acá y tarde o temprano una se escapaba. Esta versión
+ * alcanza también a los estilos en línea (el `transition: scale` que pone
+ * `setPinSelected`) y a las transiciones internas de Leaflet, que no controlamos.
+ *
+ * No se pone `animation: none`: hay animaciones que dejan al elemento en su
+ * estado final y anularlas del todo lo haría desaparecer. Una duración
+ * imperceptible lo lleva al final al instante. WCAG 2.2 §2.3.3.
+ */
 @media (prefers-reduced-motion: reduce) {
-  .hoja,
-  .skeleton {
-    animation: none;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
@@ -96,9 +281,23 @@ body {
   text-decoration: underline;
 }
 
-/* la atribución por defecto queda gris clarito sobre la foto satelital: ilegible */
-.leaflet-container .leaflet-control-attribution {
-  @apply bg-white/80 text-[10px] text-stone-700 backdrop-blur;
+/*
+ * La atribución por defecto queda gris clarito sobre la foto satelital: ilegible.
+ *
+ * La clase va repetida a propósito. El CSS de Leaflet se carga con un import
+ * dinámico (`use-leaflet.ts`), o sea DESPUÉS de esta hoja, así que con la misma
+ * especificidad gana él y su `background: rgba(255,255,255,.8)` se queda. Mientras
+ * acá también pedíamos un fondo blanco no se notaba; con el texto en blanco, el
+ * resultado era blanco sobre blanco. Duplicar la clase sube la especificidad sin
+ * recurrir a `!important`.
+ */
+.leaflet-container .leaflet-control-attribution.leaflet-control-attribution {
+  background-color: var(--color-superficie);
+  @apply text-[10px] text-white/70 backdrop-blur;
+}
+
+.leaflet-container .leaflet-control-attribution a {
+  @apply text-white/85;
 }
 
 /*

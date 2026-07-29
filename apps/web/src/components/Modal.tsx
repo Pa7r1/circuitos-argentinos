@@ -51,7 +51,7 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-[1000] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
+      className="fondo-modal fixed inset-0 z-[1000] flex items-end justify-center bg-black/60 p-0 backdrop-blur-[2px] sm:items-center sm:p-4"
       onClick={onClose}
     >
       <div
@@ -60,17 +60,18 @@ export function Modal({
         aria-modal="true"
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
-        className={`max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white p-4 shadow-2xl sm:rounded-2xl ${
+        className={`panel-modal max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white p-5 shadow-2xl sm:rounded-2xl ${
           size === 'lg' ? 'sm:max-w-2xl' : 'sm:max-w-md'
         }`}
       >
-        <div className="mb-3 flex items-start justify-between gap-3">
-          <h2 className="text-lg font-bold">{title}</h2>
+        <div className="mb-4 flex items-start justify-between gap-3">
+          {/* el tirador solo aparece en teléfono, donde el modal es una hoja */}
+          <h2 className="titulo text-xl">{title}</h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Cerrar"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xl text-stone-500 hover:bg-stone-100"
+            className="-mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xl text-stone-400 transition-colors duration-[var(--duracion-rapida)] hover:bg-stone-100 hover:text-stone-800"
           >
             ✕
           </button>

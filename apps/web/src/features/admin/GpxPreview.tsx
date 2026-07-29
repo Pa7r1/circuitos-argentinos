@@ -1,5 +1,6 @@
 import { gpx } from '@tmcw/togeojson';
 import { useEffect, useRef, useState } from 'react';
+import { TRACK_COLOR } from '../../lib/map-style';
 import { createBaseLayers, MAP_OPTIONS, useLeaflet } from '../../lib/use-leaflet';
 
 /** Extrae las coordenadas del GPX en el navegador para previsualizar antes de subir. */
@@ -37,7 +38,7 @@ export function GpxPreview({ coordinates }: { coordinates: [number, number][] })
       doubleClickZoom: false,
     });
     createBaseLayers(L, map, 'satelite');
-    L.polyline(latLngs, { color: '#ea580c', weight: 3 }).addTo(map);
+    L.polyline(latLngs, { color: TRACK_COLOR, weight: 3 }).addTo(map);
     map.fitBounds(L.latLngBounds(latLngs), { padding: [20, 20] });
     return () => {
       map.remove();

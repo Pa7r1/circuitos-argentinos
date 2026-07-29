@@ -2,7 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { DISCIPLINES } from '@circuitos/shared';
 import { Button } from '../../components/Button';
-import { Field, SelectField } from '../../components/Field';
+import { Field, SelectField, VerPassword } from '../../components/Field';
 import { Modal } from '../../components/Modal';
 import { api, RequestError } from '../../lib/api';
 import { setSession } from '../../lib/session';
@@ -32,6 +32,7 @@ export function AuthModal({
   const [password, setPassword] = useState('');
   const [discipline, setDiscipline] = useState<string>('enduro');
   const [error, setError] = useState<string | null>(null);
+  const [verPassword, setVerPassword] = useState(false);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -61,7 +62,11 @@ export function AuthModal({
         </p>
       )}
 
-      <div className="mb-4 flex gap-1 rounded-lg bg-stone-100 p-1" role="tablist">
+      <div
+        className="mb-5 flex gap-1 rounded-xl bg-stone-100 p-1"
+        role="tablist"
+        aria-label="Crear cuenta o ingresar"
+      >
         {(
           [
             ['registro', 'Crear cuenta'],
@@ -77,8 +82,10 @@ export function AuthModal({
               setSolapa(valor);
               setError(null);
             }}
-            className={`min-h-11 flex-1 rounded-md text-sm font-medium ${
-              solapa === valor ? 'bg-white shadow-sm' : 'text-stone-600'
+            className={`min-h-11 flex-1 rounded-lg text-sm font-semibold transition-[color,background-color,box-shadow] duration-[var(--duracion-rapida)] ease-suave ${
+              solapa === valor
+                ? 'bg-white text-stone-900 shadow-card'
+                : 'text-stone-500 hover:text-stone-800'
             }`}
           >
             {texto}
@@ -118,7 +125,7 @@ export function AuthModal({
         <Field
           label="Contraseña"
           id="auth-password"
-          type="password"
+          type={verPassword ? 'text' : 'password'}
           required
           minLength={esRegistro ? 8 : undefined}
           autoComplete={esRegistro ? 'new-password' : 'current-password'}
@@ -127,6 +134,7 @@ export function AuthModal({
           ayuda={esRegistro ? 'Mínimo 8 caracteres.' : undefined}
           // el error del servidor es casi siempre de credenciales: va acá
           error={error ?? undefined}
+          adorno={<VerPassword visible={verPassword} onToggle={() => setVerPassword((v) => !v)} />}
         />
 
         {esRegistro && (

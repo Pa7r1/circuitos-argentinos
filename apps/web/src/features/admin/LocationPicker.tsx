@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Map as LeafletMap, Marker } from 'leaflet';
 import { PIN_ANCHOR, PIN_SIZE, pinSvg } from '../../components/map-pin';
 import { LA_RIOJA } from '../../lib/map-style';
+import { TRACK_COLOR } from '../../lib/map-style';
 import { createBaseLayers, MAP_OPTIONS, useLeaflet } from '../../lib/use-leaflet';
 import { PlaceSearch } from '../map/PlaceSearch';
 import type { Place } from '../../lib/geocode';
@@ -56,7 +57,7 @@ export function LocationPicker({
       markerRef.current.setLatLng(latLng);
     } else {
       markerRef.current = L.marker(latLng, {
-        icon: L.divIcon({ className: '', html: pinSvg('#ea580c', '●'), iconSize: PIN_SIZE, iconAnchor: PIN_ANCHOR }),
+        icon: L.divIcon({ className: '', html: pinSvg(TRACK_COLOR, '+'), iconSize: PIN_SIZE, iconAnchor: PIN_ANCHOR }),
         interactive: false,
       }).addTo(map);
     }

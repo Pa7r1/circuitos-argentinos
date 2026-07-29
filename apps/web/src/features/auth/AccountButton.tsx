@@ -20,7 +20,9 @@ export function AccountButton({ onPedirCuenta }: { onPedirCuenta: () => void }) 
     return (
       <button
         onClick={onPedirCuenta}
-        className="min-h-11 shrink-0 rounded-full bg-brand-600 px-3 text-sm font-semibold text-white hover:bg-brand-700"
+        // brand-700 y no brand-600: con blanco encima, el 600 se queda en 3,56:1
+        // y AA pide 4,5:1 para este tamaño de texto. Ver el comentario en Button.tsx.
+        className="min-h-11 shrink-0 rounded-full bg-brand-700 px-4 text-sm font-semibold text-white transition-[background-color,scale] duration-[var(--duracion-rapida)] ease-suave hover:bg-brand-800 motion-safe:active:scale-[0.97]"
       >
         Entrar
       </button>
@@ -33,7 +35,7 @@ export function AccountButton({ onPedirCuenta }: { onPedirCuenta: () => void }) 
         onClick={() => setAbierto((v) => !v)}
         aria-expanded={abierto}
         aria-label={`Cuenta de ${session.user.name}`}
-        className="flex h-11 w-11 items-center justify-center rounded-full bg-stone-800 text-sm font-bold text-white"
+        className="flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-sm font-bold text-white ring-1 ring-white/20 transition-[background-color,scale] duration-[var(--duracion-rapida)] ease-suave hover:bg-white/25 motion-safe:active:scale-[0.97]"
       >
         {iniciales(session.user.name)}
       </button>
@@ -41,10 +43,10 @@ export function AccountButton({ onPedirCuenta }: { onPedirCuenta: () => void }) 
       {abierto && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setAbierto(false)} />
-          <div className="absolute top-full right-0 z-20 mt-1 w-56 overflow-hidden rounded-xl bg-white py-1 shadow-xl">
-            <div className="border-b border-stone-100 px-3 py-2">
-              <p className="truncate text-sm font-semibold">{session.user.name}</p>
-              <p className="truncate text-xs text-stone-500">
+          <div className="hoja flotante absolute top-full right-0 z-20 mt-2 w-56 overflow-hidden rounded-xl py-1">
+            <div className="border-b border-white/10 px-3 py-2">
+              <p className="truncate text-sm font-semibold text-white">{session.user.name}</p>
+              <p className="truncate text-xs text-white/60">
                 {session.user.email || 'Administración'}
               </p>
             </div>
@@ -52,7 +54,7 @@ export function AccountButton({ onPedirCuenta }: { onPedirCuenta: () => void }) 
               <Link
                 to="/admin"
                 onClick={() => setAbierto(false)}
-                className="block px-3 py-2.5 text-sm hover:bg-stone-100"
+                className="block px-3 py-2.5 text-sm text-white transition-colors duration-[var(--duracion-rapida)] hover:bg-white/12"
               >
                 Panel de administración
               </Link>
@@ -62,7 +64,7 @@ export function AccountButton({ onPedirCuenta }: { onPedirCuenta: () => void }) 
                 clearSession();
                 setAbierto(false);
               }}
-              className="block w-full px-3 py-2.5 text-left text-sm text-red-700 hover:bg-red-50"
+              className="block w-full px-3 py-2.5 text-left text-sm text-red-300 transition-colors duration-[var(--duracion-rapida)] hover:bg-red-500/15"
             >
               Cerrar sesión
             </button>

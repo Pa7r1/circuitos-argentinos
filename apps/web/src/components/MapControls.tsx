@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Map as LeafletMap } from 'leaflet';
+import { IconoMapa, IconoSatelite, IconoUbicacion } from './map-icons';
 import type { MapLayer } from '../lib/map-style';
 
 /**
@@ -49,7 +50,7 @@ export function MapControls({
           onClick={acercar}
           disabled={topeArriba}
           etiqueta="Acercar el mapa"
-          className="border-b border-stone-200"
+          className="border-b border-white/12"
         >
           +
         </Boton>
@@ -63,9 +64,7 @@ export function MapControls({
         etiqueta="Centrar el mapa en mi ubicación"
         className="flotante rounded-xl"
       >
-        <span aria-hidden="true" className="text-xl leading-none">
-          ◎
-        </span>
+        <IconoUbicacion />
       </Boton>
 
       <Boton
@@ -73,9 +72,7 @@ export function MapControls({
         etiqueta={siguienteCapa === 'satelite' ? 'Ver foto satelital' : 'Ver mapa de calles'}
         className="flotante rounded-xl"
       >
-        <span aria-hidden="true" className="text-lg leading-none">
-          {siguienteCapa === 'satelite' ? '🛰️' : '🗺️'}
-        </span>
+        {siguienteCapa === 'satelite' ? <IconoSatelite /> : <IconoMapa />}
       </Boton>
     </div>
   );
@@ -101,7 +98,7 @@ function Boton({
       disabled={disabled}
       aria-label={etiqueta}
       title={etiqueta}
-      className={`flex h-11 w-11 items-center justify-center text-xl font-semibold text-stone-800 transition-colors hover:bg-stone-100 disabled:text-stone-300 disabled:hover:bg-transparent ${className}`}
+      className={`flex h-11 w-11 items-center justify-center text-xl font-semibold text-white transition-[background-color,scale] duration-[var(--duracion-rapida)] ease-suave hover:bg-white/12 disabled:text-white/25 disabled:hover:bg-transparent motion-safe:active:scale-[0.94] disabled:active:scale-100 ${className}`}
     >
       {children}
     </button>

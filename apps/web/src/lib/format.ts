@@ -7,21 +7,21 @@ export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   extremo: 'Extremo',
 };
 
-/** Color de cada disciplina: identifica el pin en el mapa y su chip de filtro. */
-export const DISCIPLINE_COLOR: Record<string, string> = {
-  enduro: '#ea580c',
-  motocross: '#2563eb',
-  mtb: '#7c3aed',
-};
-
 /**
- * Variante oscura para fondos con texto blanco: el naranja del pin no llega al
- * contraste AA (3,4:1) sobre blanco, estos tonos sí.
+ * Color de cada disciplina: identifica el pin en el mapa y su chip de filtro.
+ *
+ * Va sobre grafito y en superficies chicas (un punto de 8 px, el anillo del pin),
+ * así que son tonos claros y saturados: un color oscuro sobre grafito no se ve.
+ * Los tres están bien separados en tono —ámbar, celeste y verde— para que se
+ * distingan también con daltonismo rojo-verde, que es el más frecuente.
+ *
+ * El naranja se fue: el terreno de las fotos satelitales ya es ocre y anaranjado,
+ * y un pin naranja sobre tierra naranja desaparece.
  */
-export const DISCIPLINE_CHIP_BG: Record<string, string> = {
-  enduro: '#c2410c',
-  motocross: '#1d4ed8',
-  mtb: '#6d28d9',
+export const DISCIPLINE_COLOR: Record<string, string> = {
+  enduro: '#fbbf24',
+  motocross: '#38bdf8',
+  mtb: '#4ade80',
 };
 
 /** Inicial que va dentro del pin. */
@@ -29,6 +29,19 @@ export const DISCIPLINE_LETTER: Record<string, string> = {
   enduro: 'E',
   motocross: 'M',
   mtb: 'B',
+};
+
+/**
+ * Dificultad sobre superficie grafito. Las clases de `DIFFICULTY_BADGE` son de
+ * fondo claro y ahí quedan ilegibles, así que la escala oscura tiene su propio
+ * mapa: verde → ámbar → naranja → rojo, que se lee como una progresión aunque no
+ * se distingan los colores entre sí, porque el orden va acompañado del texto.
+ */
+export const DIFFICULTY_ON_DARK: Record<Difficulty, string> = {
+  facil: 'text-green-400',
+  intermedio: 'text-amber-400',
+  dificil: 'text-orange-400',
+  extremo: 'text-red-400',
 };
 
 export const DIFFICULTY_BADGE: Record<Difficulty, string> = {

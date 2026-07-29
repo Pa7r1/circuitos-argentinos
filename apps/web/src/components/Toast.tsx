@@ -26,14 +26,30 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={show}>
       {children}
       {toast && (
+        /*
+         * Va ARRIBA y con z-index por encima de todo. Abajo quedaba tapado por la
+         * hoja del circuito, que está en z-600 contra el z-50 que tenía: el aviso
+         * de error existía pero no se veía. Arriba tampoco compite con el pulgar.
+         */
         <div
           role="alert"
           aria-live="assertive"
-          className={`fixed bottom-4 left-1/2 z-50 w-[90%] max-w-md -translate-x-1/2 rounded-lg px-4 py-3 text-sm font-medium text-white shadow-lg ${
-            toast.kind === 'error' ? 'bg-red-700' : 'bg-green-700'
+          className={`aviso fixed top-3 left-1/2 z-[1100] flex w-[92%] max-w-md -translate-x-1/2 items-start gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white shadow-float ${
+            toast.kind === 'error' ? 'bg-red-800' : 'bg-green-800'
           }`}
         >
-          {toast.message}
+          <span aria-hidden="true" className="mt-px shrink-0">
+            {toast.kind === 'error' ? '⚠' : '✓'}
+          </span>
+          <p className="flex-1">{toast.message}</p>
+          <button
+            type="button"
+            onClick={() => setToast(null)}
+            aria-label="Cerrar el aviso"
+            className="-my-1 -mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white/70 transition-colors duration-[var(--duracion-rapida)] hover:bg-white/15 hover:text-white"
+          >
+            ✕
+          </button>
         </div>
       )}
     </ToastContext.Provider>

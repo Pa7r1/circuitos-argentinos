@@ -4,14 +4,14 @@ import { useNavigate } from 'react-router-dom';
 import type { CircuitSummary } from '@circuitos/shared';
 import { DISCIPLINES } from '@circuitos/shared';
 import { Button, ButtonLink } from '../../components/Button';
+import { DisciplineChip } from '../../components/DisciplineChip';
 import { MapControls } from '../../components/MapControls';
 import { PIN_ANCHOR, PIN_SIZE, pinSvg, setPinSelected } from '../../components/map-pin';
 import { useToast } from '../../components/Toast';
 import {
   ACCESS_LABEL,
-  DIFFICULTY_BADGE,
   DIFFICULTY_LABEL,
-  DISCIPLINE_CHIP_BG,
+  DIFFICULTY_ON_DARK,
   DISCIPLINE_COLOR,
   DISCIPLINE_LETTER,
   formatDistanceAway,
@@ -154,7 +154,9 @@ export function MapPage() {
           meMarkerRef.current = L.marker([lonLat[1], lonLat[0]], {
             icon: L.divIcon({
               className: '',
-              html: '<div class="h-4 w-4 rounded-full border-2 border-white bg-blue-600 shadow-md"></div>',
+              // el punto de "acá estoy" usa el color de acción: es la única marca
+              // del mapa que habla de la persona y no de un circuito
+              html: '<div class="h-4 w-4 rounded-full border-2 border-white bg-brand-500 shadow-md"></div>',
               iconSize: [16, 16],
               iconAnchor: [8, 8],
             }),
@@ -194,7 +196,7 @@ export function MapPage() {
     }
     for (const { circuit } of circuits) {
       if (markers.has(circuit.slug)) continue;
-      const color = DISCIPLINE_COLOR[circuit.discipline] ?? '#ea580c';
+      const color = DISCIPLINE_COLOR[circuit.discipline] ?? '#e7e5e4';
       const letter = DISCIPLINE_LETTER[circuit.discipline] ?? '?';
       const marker = L.marker(
         [circuit.startPoint.coordinates[1], circuit.startPoint.coordinates[0]],
@@ -207,6 +209,12 @@ export function MapPage() {
           }),
           keyboard: true,
           title: circuit.name,
+          // Sin esto, tocar un pin MUEVE el mapa: Leaflet enfoca el marcador y
+          // desplaza la vista para "traerlo a la vista", pero no sabe que la hoja
+          // del circuito tapa la mitad de abajo de la pantalla, así que corría el
+          // pin unos 45 px a la derecha y 93 px abajo. Está prendido por defecto
+          // desde Leaflet 1.9. El pin ahora se resalta donde está y nada se mueve.
+          autoPanOnFocus: false,
         },
       ).addTo(map);
       // con divIcon Leaflet no aplica `alt`: el nombre accesible va al elemento
@@ -255,51 +263,45 @@ export function MapPage() {
       <div className="absolute top-3 left-1/2 z-[500] w-[95%] max-w-xl -translate-x-1/2 space-y-2">
         <div className="flotante flex items-center gap-2 rounded-2xl p-2">
           <PlaceSearch selected={place} onSelect={selectPlace} onClear={clearPlace} />
+          {/*
+            El resultado del filtro vive dentro de la barra y no en una píldora aparte:
+            es la respuesta a "¿hizo algo lo que toqué?", y como dato depende del
+            buscador y de los chips, no es un elemento más que compita con ellos.
+          */}
+          {!isPending && (
+            <span
+              aria-live="polite"
+              className="shrink-0 border-l border-white/15 py-0.5 pl-2.5 text-[11px] leading-[1.15] font-semibold text-white/75"
+            >
+              <span className="block text-sm text-white tabular-nums">{circuits.length}</span>
+              {circuits.length === 1 ? 'circuito' : 'circuitos'}
+              {place && (
+                <span className="sr-only">{` a ${Math.round(radiusM / 1000)} km de ${place.name}`}</span>
+              )}
+            </span>
+          )}
           <AccountButton onPedirCuenta={() => setPedirCuenta({})} />
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
           <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrar por disciplina">
-            {DISCIPLINES.map((d) => {
-              const on = !hidden.has(d.slug);
-              const color = DISCIPLINE_COLOR[d.slug]!;
-              return (
-                <button
-                  key={d.slug}
-                  onClick={() =>
-                    setHidden((prev) => {
-                      const next = new Set(prev);
-                      if (on) next.add(d.slug);
-                      else next.delete(d.slug);
-                      return next;
-                    })
-                  }
-                  aria-pressed={on}
-                  // el chip encendido se llena con el color de la disciplina y el
-                  // apagado queda blanco: la diferencia se ve de reojo, sin leer
-                  className={`flex min-h-11 items-center gap-1.5 rounded-full px-3 text-sm font-medium shadow-float transition-colors ${
-                    on ? 'text-white' : 'bg-white/95 text-stone-600 ring-1 ring-black/5'
-                  }`}
-                  style={on ? { backgroundColor: DISCIPLINE_CHIP_BG[d.slug] } : undefined}
-                >
-                  <span
-                    aria-hidden="true"
-                    className="h-2.5 w-2.5 rounded-full border border-white/70"
-                    style={{ backgroundColor: on ? '#fff' : color }}
-                  />
-                  {d.name}
-                </button>
-              );
-            })}
+            {DISCIPLINES.map((d) => (
+              <DisciplineChip
+                key={d.slug}
+                nombre={d.name}
+                color={DISCIPLINE_COLOR[d.slug]!}
+                activo={!hidden.has(d.slug)}
+                onToggle={() =>
+                  setHidden((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(d.slug)) next.delete(d.slug);
+                    else next.add(d.slug);
+                    return next;
+                  })
+                }
+              />
+            ))}
           </div>
-
-          {/* el resultado del filtro, al lado del filtro: la respuesta a "¿hizo algo?" */}
-          {!isPending && (
-            <span className="flotante rounded-full px-3 py-2 text-xs font-semibold text-stone-700">
-              {circuits.length === 1 ? '1 circuito' : `${circuits.length} circuitos`}
-              {place ? ` a ${Math.round(radiusM / 1000)} km de ${place.name}` : ''}
-            </span>
-          )}
         </div>
       </div>
 
@@ -311,17 +313,17 @@ export function MapPage() {
       />
 
       {isPending && (
-        <p className="flotante absolute top-1/2 left-1/2 z-[500] max-w-[85%] -translate-x-1/2 rounded-full px-4 py-2.5 text-center text-sm font-medium">
+        <p className="hoja flotante absolute top-1/2 left-1/2 z-[500] max-w-[85%] -translate-x-1/2 rounded-full px-4 py-2.5 text-center text-sm font-medium">
           {despertando ? 'Despertando el servidor, puede tardar un minuto…' : 'Cargando circuitos…'}
         </p>
       )}
 
       {/* sin resultados dentro del radio buscado */}
       {place && !isPending && circuits.length === 0 && (
-        <div className="hoja absolute bottom-24 left-1/2 z-[500] w-[90%] max-w-sm -translate-x-1/2 rounded-2xl bg-white p-4 text-center shadow-float">
-          <p className="mb-3 text-sm text-stone-700">
+        <div className="hoja flotante absolute bottom-24 left-1/2 z-[500] w-[90%] max-w-sm -translate-x-1/2 rounded-2xl p-4 text-center">
+          <p className="mb-3 text-sm text-white/80">
             No hay circuitos a menos de {Math.round(radiusM / 1000)} km de{' '}
-            <strong className="font-semibold text-stone-900">{place.name}</strong>.
+            <strong className="font-semibold text-white">{place.name}</strong>.
           </p>
           {radiusM < WIDE_RADIUS_M ? (
             <Button
@@ -350,45 +352,85 @@ export function MapPage() {
         <div
           role="dialog"
           aria-label={selected.name}
-          className="hoja absolute right-0 bottom-0 left-0 z-[600] mx-auto max-w-xl rounded-t-2xl bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-sheet sm:bottom-4 sm:w-[95%] sm:rounded-2xl"
+          className="hoja flotante absolute right-0 bottom-0 left-0 z-[600] mx-auto max-w-xl rounded-t-2xl px-4 pt-2.5 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-sheet sm:bottom-4 sm:w-[95%] sm:rounded-2xl"
         >
+          {/* el tirador dice "esto es una hoja que se puede cerrar" sin una palabra */}
+          <div aria-hidden="true" className="mx-auto mb-3 h-1 w-9 rounded-full bg-white/25" />
+
           <div className="mb-3 flex items-start justify-between gap-2">
-            <div>
-              <h2 className="text-lg font-bold text-stone-900">{selected.name}</h2>
-              <p className="text-sm text-stone-600">
+            <div className="min-w-0">
+              {/* la disciplina y el lugar van arriba y chicos: son el contexto, no el dato */}
+              <p className="mb-0.5 flex items-center gap-1.5 text-[11px] font-semibold tracking-[0.08em] text-white/60 uppercase">
                 <span
-                  className="mr-1.5 inline-block h-2.5 w-2.5 rounded-full align-middle"
+                  className="inline-block h-2 w-2 shrink-0 rounded-full"
                   style={{ backgroundColor: DISCIPLINE_COLOR[selected.discipline] }}
                   aria-hidden="true"
                 />
                 {DISCIPLINES.find((d) => d.slug === selected.discipline)?.name}
                 {selected.locality ? ` · ${selected.locality}` : ''}
-                {selectedAway !== null
-                  ? ` · ${formatDistanceAway(selectedAway)}${place ? ` de ${place.name}` : ''}`
-                  : ''}
               </p>
+              <h2 className="titulo truncate text-xl text-white">{selected.name}</h2>
             </div>
             <button
               onClick={() => setSelected(null)}
               aria-label="Cerrar"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xl text-stone-500 hover:bg-stone-100"
+              className="-mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xl text-white/60 transition-colors duration-[var(--duracion-rapida)] hover:bg-white/12 hover:text-white"
             >
               ✕
             </button>
           </div>
-          <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
-            <span
-              className={`rounded-full px-2.5 py-1 font-medium ${DIFFICULTY_BADGE[selected.difficulty]}`}
-            >
-              {DIFFICULTY_LABEL[selected.difficulty]}
-            </span>
-            <span className="rounded-full bg-stone-100 px-2.5 py-1 font-medium text-stone-700">
-              {formatKm(selected.distanceM)}
-            </span>
-            <span className="rounded-full bg-stone-100 px-2.5 py-1 text-stone-700">
-              {ACCESS_LABEL[selected.accessType]}
-            </span>
-          </div>
+
+          {/*
+            Tres datos como datos y no como tres píldoras iguales. Cuando todo tiene
+            la misma forma y el mismo peso, nada se lee primero y la tarjeta parece
+            un formulario. Acá el valor va grande y la etiqueta chica debajo.
+          */}
+          <dl
+            className={`mb-4 grid gap-2 border-y border-white/10 py-2.5 ${
+              selectedAway !== null ? 'grid-cols-3' : 'grid-cols-2'
+            }`}
+          >
+            <div>
+              <dd className="text-lg leading-tight font-bold text-white tabular-nums">
+                {formatKm(selected.distanceM)}
+              </dd>
+              <dt className="text-[11px] text-white/50">Recorrido</dt>
+            </div>
+            <div>
+              <dd
+                className={`text-lg leading-tight font-bold ${DIFFICULTY_ON_DARK[selected.difficulty]}`}
+              >
+                {DIFFICULTY_LABEL[selected.difficulty]}
+              </dd>
+              <dt className="text-[11px] text-white/50">Dificultad</dt>
+            </div>
+            {/*
+              La distancia hasta el circuito solo existe si sabemos desde dónde: con
+              el permiso de ubicación denegado y sin búsqueda, esta columna quedaba
+              con un guion y una etiqueta suelta. Un dato vacío ocupa lugar y no
+              informa: mejor que la grilla pase a dos columnas.
+            */}
+            {selectedAway !== null && (
+              <div>
+                <dd className="text-lg leading-tight font-bold text-white">
+                  {formatDistanceAway(selectedAway).replace('a ', '')}
+                </dd>
+                <dt className="truncate text-[11px] text-white/50">
+                  {place ? `de ${place.name}` : 'De tu ubicación'}
+                </dt>
+              </div>
+            )}
+          </dl>
+          {/* el acceso condiciona si el viaje se puede hacer: va antes de la acción */}
+          <p
+            className={`mb-3 flex items-center gap-1.5 text-sm ${
+              selected.accessType === 'libre' ? 'text-white/70' : 'text-amber-300'
+            }`}
+          >
+            <span aria-hidden="true">{selected.accessType === 'libre' ? '✓' : '⚠'}</span>
+            {ACCESS_LABEL[selected.accessType]}
+          </p>
+
           {session ? (
             <ButtonLink to={`/circuitos/${selected.slug}`} variante="primary" tamano="lg" ancho>
               Ver circuito

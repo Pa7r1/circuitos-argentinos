@@ -13,7 +13,7 @@ import { api, API_URL, RequestError } from '../../lib/api';
 import { Button, ButtonLink } from '../../components/Button';
 import { ExternalMapEmbed } from '../../components/ExternalMapEmbed';
 import { MapLayerToggle } from '../../components/MapLayerToggle';
-import { type MapLayer } from '../../lib/map-style';
+import { TRACK_CASING, TRACK_COLOR, type MapLayer } from '../../lib/map-style';
 import { useCircuitDetail } from '../../lib/queries';
 import { createBaseLayers, MAP_OPTIONS, useLeaflet } from '../../lib/use-leaflet';
 import { useSession } from '../../lib/use-session';
@@ -38,8 +38,8 @@ function TrackMap({ circuit, track }: { circuit: CircuitDetail; track: GeoJsonLi
     applyLayerRef.current = createBaseLayers(L, map, layer);
 
     // trazado: línea blanca de base para que se lea sobre cualquier terreno
-    L.polyline(latLngs, { color: '#ffffff', weight: 7 }).addTo(map);
-    L.polyline(latLngs, { color: '#ea580c', weight: 4 }).addTo(map);
+    L.polyline(latLngs, { color: TRACK_CASING, weight: 7 }).addTo(map);
+    L.polyline(latLngs, { color: TRACK_COLOR, weight: 4 }).addTo(map);
     map.fitBounds(L.latLngBounds(latLngs), { padding: [30, 30] });
 
     L.marker([circuit.startPoint.coordinates[1], circuit.startPoint.coordinates[0]], {
@@ -72,6 +72,52 @@ function TrackMap({ circuit, track }: { circuit: CircuitDetail; track: GeoJsonLi
   );
 }
 
+/**
+ * Foto ampliada.
+ *
+ * Antes era un div suelto que solo cerraba con clic: sin Escape, sin devolver el
+ * foco y sin atraparlo, así que con teclado se podía tabular por los enlaces de la
+ * página que quedaba tapada abajo. Todo eso ya estaba resuelto en `Modal`; lo que
+ * faltaba era que este visor lo usara en vez de reimplementarlo a medias.
+ */
+function VisorFoto({ src, onClose }: { src: string; onClose: () => void }) {
+  useEffect(() => {
+    const previo = document.activeElement as HTMLElement | null;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = '';
+      previo?.focus();
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      className="fondo-modal fixed inset-0 z-[1000] flex items-center justify-center bg-black/92 p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Foto ampliada"
+    >
+      <img
+        src={src}
+        alt=""
+        className="panel-modal max-h-full max-w-full rounded-lg object-contain"
+      />
+      <button
+        onClick={onClose}
+        autoFocus
+        aria-label="Cerrar la foto"
+        className="absolute top-4 right-4 flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-2xl text-white backdrop-blur transition-colors duration-[var(--duracion-rapida)] hover:bg-white/30"
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
 function DetailSkeleton({ despertando }: { despertando: boolean }) {
   return (
     <div className="mx-auto max-w-2xl p-4" aria-busy="true" aria-label="Cargando circuito">
@@ -93,7 +139,7 @@ function Peaje({ onEntrar }: { onEntrar: () => void }) {
   return (
     <main className="mx-auto flex min-h-full max-w-md flex-col justify-center p-6">
       <div className="tarjeta p-6 text-center">
-        <h1 className="mb-2 text-2xl font-bold">Creá tu cuenta para ver este circuito</h1>
+        <h1 className="mb-2 titulo text-2xl">Creá tu cuenta para ver este circuito</h1>
         <p className="mb-5 text-stone-600">El mapa es libre. Con tu cuenta, además, vas a poder:</p>
         {/* qué gana la persona, en concreto: el registro se justifica solo */}
         <ul className="mb-6 space-y-2 text-left text-sm text-stone-700">
@@ -153,7 +199,7 @@ export function CircuitPage() {
   if (isError || !circuit) {
     return (
       <main className="mx-auto max-w-2xl p-6 text-center">
-        <h1 className="mb-2 text-xl font-bold">Circuito no encontrado</h1>
+        <h1 className="mb-2 titulo text-xl">Circuito no encontrado</h1>
         <p className="mb-4 text-stone-600">Puede que ya no esté publicado.</p>
         <Link to="/" className="font-medium text-brand-700 underline">
           Volver al mapa
@@ -192,7 +238,7 @@ export function CircuitPage() {
 
       <div className="p-4">
         <div className="mb-4">
-          <h1 className="text-2xl font-bold text-stone-900">{circuit.name}</h1>
+          <h1 className="titulo text-2xl text-stone-900">{circuit.name}</h1>
           <p className="mt-1 flex flex-wrap items-center gap-x-2 text-stone-600">
             <span>
               {circuit.locality ? `${circuit.locality}, ` : ''}
@@ -212,33 +258,37 @@ export function CircuitPage() {
         <dl className="mb-4 grid grid-cols-2 gap-2">
           <div className="tarjeta px-4 py-3">
             <dt className="text-xs font-medium tracking-wide text-stone-500 uppercase">Distancia</dt>
-            <dd className="text-2xl font-bold tabular-nums">{formatKm(circuit.distanceM)}</dd>
+            <dd className="titulo text-2xl tabular-nums">{formatKm(circuit.distanceM)}</dd>
           </div>
           <div className="tarjeta px-4 py-3">
             <dt className="text-xs font-medium tracking-wide text-stone-500 uppercase">Desnivel</dt>
-            <dd className="text-2xl font-bold tabular-nums">
+            <dd className="titulo text-2xl tabular-nums">
               {circuit.elevationGainM !== null ? `${circuit.elevationGainM} m` : '—'}
             </dd>
           </div>
         </dl>
 
-        <div
-          className={`mb-6 rounded-xl p-3 text-sm ${
-            warnAccess
-              ? 'border border-amber-300 bg-amber-50 text-amber-900'
-              : 'border border-stone-200 bg-stone-50 text-stone-700'
-          }`}
-        >
-          <p className="font-semibold">
-            {warnAccess && (
-              <span aria-hidden="true" className="mr-1">
-                ⚠
-              </span>
-            )}
+        {/*
+          El acceso solo ocupa lugar cuando condiciona el viaje. "Acceso libre" sin
+          aclaraciones es una buena noticia de dos palabras: metida en una caja del
+          mismo tamaño que una advertencia, pedía una atención que no necesita.
+        */}
+        {warnAccess ? (
+          <div className="mb-6 flex gap-2.5 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+            <span aria-hidden="true" className="mt-px">
+              ⚠
+            </span>
+            <div>
+              <p className="font-semibold">{ACCESS_LABEL[circuit.accessType]}</p>
+              {circuit.accessNotes && <p className="mt-1">{circuit.accessNotes}</p>}
+            </div>
+          </div>
+        ) : (
+          <p className="mb-6 flex items-center gap-1.5 text-sm font-medium text-green-800">
+            <span aria-hidden="true">✓</span>
             {ACCESS_LABEL[circuit.accessType]}
           </p>
-          {circuit.accessNotes && <p className="mt-1">{circuit.accessNotes}</p>}
-        </div>
+        )}
 
         <div className="mb-6 grid gap-2 sm:grid-cols-2">
           {/* una sola acción primaria: llegar. Bajar el GPX es para después */}
@@ -333,14 +383,17 @@ export function CircuitPage() {
                 <button
                   key={m.url}
                   onClick={() => setFoto(`${API_URL}${m.url}`)}
-                  className="overflow-hidden rounded-lg"
+                  className="group aspect-[4/3] overflow-hidden rounded-xl bg-stone-200"
                   aria-label="Ver la foto en grande"
                 >
                   <img
                     src={`${API_URL}${m.url}`}
                     alt={`Foto del circuito ${circuit.name}`}
                     loading="lazy"
-                    className="h-32 w-full object-cover transition-transform hover:scale-105"
+                    decoding="async"
+                    // el contenedor reserva la proporción, así que la página no
+                    // salta cuando la foto termina de bajar
+                    className="h-full w-full object-cover transition-transform duration-[var(--duracion-media)] ease-suave motion-safe:group-hover:scale-105"
                   />
                 </button>
               ))}
@@ -349,23 +402,7 @@ export function CircuitPage() {
         )}
       </div>
 
-      {foto && (
-        <div
-          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/90 p-4"
-          onClick={() => setFoto(null)}
-          role="dialog"
-          aria-label="Foto ampliada"
-        >
-          <img src={foto} alt="" className="max-h-full max-w-full object-contain" />
-          <button
-            onClick={() => setFoto(null)}
-            aria-label="Cerrar la foto"
-            className="absolute top-4 right-4 flex h-11 w-11 items-center justify-center rounded-full bg-white/20 text-2xl text-white"
-          >
-            ✕
-          </button>
-        </div>
-      )}
+      {foto && <VisorFoto src={foto} onClose={() => setFoto(null)} />}
     </main>
   );
 }

@@ -1,26 +1,50 @@
 /**
- * Pin en forma de gota para los marcadores: se ancla en la punta, lleva el color
- * de la disciplina y contorno blanco para resaltar sobre la foto satelital.
+ * Marcador del mapa: un disco grafito con un anillo del color de la disciplina.
+ *
+ * Es un punto y no una gota por dos motivos. Uno, la gota mide 40 px de alto y
+ * tapa el relieve justo arriba del lugar que está señalando, que es el terreno que
+ * la persona quiere ver. Dos, con varios circuitos cercanos las gotas se pisan
+ * entre sí; los discos, no.
+ *
+ * El cuerpo es del mismo grafito que el resto del cromo y el color queda reducido
+ * al anillo y a la inicial: sobre una foto satelital ocre, tres discos saturados
+ * eran tres manchas peleándose con el mapa.
  */
 export function pinSvg(color: string, letter: string): string {
   return `
-    <svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg"
-         style="display:block; filter: drop-shadow(0 2px 3px rgba(0,0,0,.45))">
-      <path d="M14 35.5C14 35.5 26.5 21.9 26.5 13.5A12.5 12.5 0 1 0 1.5 13.5C1.5 21.9 14 35.5 14 35.5Z"
-            fill="${color}" stroke="#fff" stroke-width="2.5" />
-      <text x="14" y="18.5" text-anchor="middle" fill="#fff"
-            font-family="system-ui, sans-serif" font-size="13" font-weight="700">${letter}</text>
-    </svg>`;
+    <span class="pin" style="display:block; width:26px; height:26px">
+      <svg width="26" height="26" viewBox="0 0 26 26" xmlns="http://www.w3.org/2000/svg"
+           style="display:block; overflow:visible">
+        <!-- sombra propia: despega el disco del terreno sin usar un filtro CSS,
+             que obligaría a repintar la capa en cada cuadro del paneo -->
+        <circle cx="13" cy="13.8" r="10.5" fill="rgba(0,0,0,.35)" />
+        <circle cx="13" cy="13" r="10.5" fill="#231f1c" />
+        <circle cx="13" cy="13" r="10.5" fill="none" stroke="${color}" stroke-width="2.5" />
+        <text x="13" y="17.4" text-anchor="middle" fill="${color}"
+              font-family="'Archivo Variable', system-ui, sans-serif"
+              font-size="11.5" font-weight="700" letter-spacing="-0.2">${letter}</text>
+      </svg>
+    </span>`;
 }
 
-export const PIN_SIZE: [number, number] = [28, 36];
-/** El ancla es la punta de la gota. */
-export const PIN_ANCHOR: [number, number] = [14, 36];
+export const PIN_SIZE: [number, number] = [26, 26];
+/** El disco se centra en la coordenada; no hay punta que anclar. */
+export const PIN_ANCHOR: [number, number] = [13, 13];
 
-/** Resalta el pin del circuito abierto. */
+/**
+ * Resalta el pin del circuito abierto.
+ *
+ * El `scale` se aplica al `<span class="pin">` de adentro y NO al elemento que
+ * Leaflet posiciona. Tocar el de afuera obligaba a pisarle el `transform-origin`
+ * —que Leaflet fija en `0 0` para animar el zoom— y el pin se iba de lugar.
+ * Escalando el hijo, Leaflet sigue siendo el único dueño del `transform` del padre.
+ */
 export function setPinSelected(root: HTMLElement, selected: boolean): void {
-  root.style.transformOrigin = 'bottom center';
-  root.style.transition = 'scale 150ms';
-  root.style.scale = selected ? '1.3' : '1';
+  const pin = root.querySelector<HTMLElement>('.pin');
+  if (!pin) return;
+  pin.style.transition = 'scale var(--duracion-media) var(--ease-salida), filter 150ms';
+  pin.style.transformOrigin = 'center';
+  pin.style.scale = selected ? '1.35' : '1';
+  pin.style.filter = selected ? 'drop-shadow(0 0 6px rgba(255,255,255,.9))' : '';
   root.style.zIndex = selected ? '1000' : '';
 }

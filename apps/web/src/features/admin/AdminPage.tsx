@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import type { AdminCircuitDetail, AdminCircuitListItem, CircuitStatus } from '@circuitos/shared';
 import { DISCIPLINES, PROVINCES } from '@circuitos/shared';
 import { Button, ButtonLink } from '../../components/Button';
-import { Field } from '../../components/Field';
+import { Field, VerPassword } from '../../components/Field';
 import { Modal } from '../../components/Modal';
 import { useToast } from '../../components/Toast';
 import { api, RequestError } from '../../lib/api';
@@ -35,6 +35,7 @@ const nombreProvincia = (slug: string) => PROVINCES.find((p) => p.slug === slug)
 function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [verPassword, setVerPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
 
@@ -55,7 +56,7 @@ function LoginForm() {
   return (
     <main className="mx-auto flex min-h-full max-w-sm flex-col justify-center p-6">
       <div className="tarjeta p-6">
-        <h1 className="text-xl font-bold">Panel de administración</h1>
+        <h1 className="titulo text-xl">Panel de administración</h1>
         <p className="mt-1 mb-5 text-sm text-stone-600">
           Entrá con la misma cuenta que usás en el mapa.
         </p>
@@ -79,12 +80,13 @@ function LoginForm() {
           <Field
             label="Contraseña"
             id="password"
-            type="password"
+            type={verPassword ? 'text' : 'password'}
             required
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             error={error ?? undefined}
+            adorno={<VerPassword visible={verPassword} onToggle={() => setVerPassword((v) => !v)} />}
           />
           <Button type="submit" variante="primary" tamano="lg" ancho disabled={mutation.isPending}>
             {mutation.isPending ? 'Ingresando…' : 'Ingresar'}
@@ -109,7 +111,7 @@ function SinPermisos({ nombre }: { nombre: string }) {
   return (
     <main className="mx-auto flex min-h-full max-w-sm flex-col justify-center p-6 text-center">
       <div className="tarjeta p-6">
-        <h1 className="mb-2 text-xl font-bold">No tenés acceso al panel</h1>
+        <h1 className="mb-2 titulo text-xl">No tenés acceso al panel</h1>
         <p className="mb-6 text-sm text-stone-600">
           Entraste como <strong className="text-stone-900">{nombre}</strong>, una cuenta sin
           permisos de administración.
@@ -156,6 +158,9 @@ function Resumen() {
 export function AdminPage() {
   const session = useSession();
   const [modal, setModal] = useState<{ editing?: AdminCircuitDetail } | null>(null);
+  // el confirm() del navegador se ve distinto en cada sistema, no se puede
+  // traducir ni estilar, y aparecía en medio de una interfaz cuidada
+  const [porArchivar, setPorArchivar] = useState<AdminCircuitListItem | null>(null);
   const [filtro, setFiltro] = useState<CircuitStatus | 'todos'>('todos');
   const [busqueda, setBusqueda] = useState('');
   const queryClient = useQueryClient();
@@ -207,7 +212,7 @@ export function AdminPage() {
       {/* barra de la aplicación: fija arriba, para no perder la salida al scrollear */}
       <header className="sticky top-0 z-10 border-b border-stone-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 py-2">
-          <h1 className="text-lg font-bold">Administración</h1>
+          <h1 className="titulo text-lg">Administración</h1>
           <div className="flex items-center gap-1">
             <ButtonLink to="/" variante="ghost" tamano="sm">
               Ver mapa
@@ -299,42 +304,47 @@ export function AdminPage() {
                   {STATUS_LABEL[item.status]}
                 </span>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {item.status !== 'published' ? (
-                  <Button
-                    variante="success"
-                    tamano="sm"
-                    onClick={() => statusMutation.mutate({ id: item.id, status: 'published' })}
-                  >
-                    Publicar
+              {/*
+                Dos grupos y no una fila que se desborda: con `flex-wrap` y un
+                `ml-auto` en la acción destructiva, al angostarse la pantalla
+                "Archivar" caía a un renglón propio pegado a la derecha y parecía
+                un error de maquetado. Agrupadas, la fila se parte de forma
+                previsible y lo destructivo queda siempre separado de lo demás.
+              */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  {item.status !== 'published' ? (
+                    <Button
+                      variante="success"
+                      tamano="sm"
+                      onClick={() => statusMutation.mutate({ id: item.id, status: 'published' })}
+                    >
+                      Publicar
+                    </Button>
+                  ) : (
+                    <Button
+                      variante="secondary"
+                      tamano="sm"
+                      onClick={() => statusMutation.mutate({ id: item.id, status: 'draft' })}
+                    >
+                      Despublicar
+                    </Button>
+                  )}
+                  <Button variante="secondary" tamano="sm" onClick={() => void abrirEdicion(item)}>
+                    Editar
                   </Button>
-                ) : (
-                  <Button
-                    variante="secondary"
-                    tamano="sm"
-                    onClick={() => statusMutation.mutate({ id: item.id, status: 'draft' })}
-                  >
-                    Despublicar
-                  </Button>
-                )}
-                <Button variante="secondary" tamano="sm" onClick={() => void abrirEdicion(item)}>
-                  Editar
-                </Button>
-                {item.status === 'published' && (
-                  <ButtonLink to={`/circuitos/${item.slug}`} variante="ghost" tamano="sm">
-                    Ver ficha
-                  </ButtonLink>
-                )}
+                  {item.status === 'published' && (
+                    <ButtonLink to={`/circuitos/${item.slug}`} variante="ghost" tamano="sm">
+                      Ver ficha
+                    </ButtonLink>
+                  )}
+                </div>
                 {item.status !== 'archived' && (
                   <Button
                     variante="danger"
                     tamano="sm"
-                    className="ml-auto"
-                    onClick={() => {
-                      if (confirm(`¿Archivar "${item.name}"? Dejará de verse en el mapa.`)) {
-                        statusMutation.mutate({ id: item.id, status: 'archived' });
-                      }
-                    }}
+                    className="shrink-0"
+                    onClick={() => setPorArchivar(item)}
                   >
                     Archivar
                   </Button>
@@ -343,6 +353,34 @@ export function AdminPage() {
             </li>
           ))}
         </ul>
+
+        {porArchivar && (
+          <Modal title="¿Archivar este circuito?" onClose={() => setPorArchivar(null)}>
+            <p className="mb-1 text-stone-700">
+              <strong className="font-semibold text-stone-900">{porArchivar.name}</strong> va a dejar
+              de verse en el mapa.
+            </p>
+            <p className="mb-5 text-sm text-stone-500">
+              No se borra nada: podés volver a publicarlo cuando quieras desde el filtro
+              «Archivado».
+            </p>
+            <div className="flex gap-2">
+              <Button variante="secondary" ancho onClick={() => setPorArchivar(null)}>
+                Cancelar
+              </Button>
+              <Button
+                variante="primary"
+                ancho
+                onClick={() => {
+                  statusMutation.mutate({ id: porArchivar.id, status: 'archived' });
+                  setPorArchivar(null);
+                }}
+              >
+                Archivar
+              </Button>
+            </div>
+          </Modal>
+        )}
 
         {modal && (
           <Modal

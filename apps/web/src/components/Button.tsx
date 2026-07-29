@@ -11,8 +11,19 @@ import { Link } from 'react-router-dom';
 export type Variante = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
 
 const VARIANTE: Record<Variante, string> = {
-  primary: 'bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800 shadow-card',
-  secondary: 'border border-stone-300 bg-white text-stone-800 hover:bg-stone-50',
+  /*
+   * El fondo es brand-700 y no brand-600 por contraste medido, no por gusto:
+   * blanco sobre el 600 (#0891b2) da 3,68:1 y WCAG AA pide 4,5:1 para texto normal
+   * —y `text-sm`/`text-base` en negrita siguen siendo texto normal, porque "grande"
+   * arranca en 18,66 px—. El 700 da 5,36:1. El cian claro queda para el aro de foco
+   * y los detalles, donde el piso es 3:1 y sí lo cumple.
+   *
+   * Se oscurece al pasar por encima y al tocar: el gesto es hundir, y de paso cada
+   * estado tiene más contraste que el anterior, no menos.
+   */
+  primary:
+    'bg-brand-700 text-white hover:bg-brand-800 active:bg-brand-900 shadow-[0_1px_2px_rgb(22_78_99/.3),0_4px_12px_-2px_rgb(8_145_178/.3)]',
+  secondary: 'border border-stone-300 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-50',
   ghost: 'text-stone-700 hover:bg-stone-100',
   danger: 'text-red-700 hover:bg-red-50',
   success: 'bg-green-700 text-white hover:bg-green-800',
@@ -25,8 +36,22 @@ const TAMANO = {
   lg: 'min-h-12 px-5 text-base',
 } as const;
 
+/**
+ * El `active:scale` es el acuse del toque. En un teléfono no hay `:hover`, así que
+ * entre que la persona toca y la red contesta el botón no da ninguna señal de vida
+ * y el reflejo es volver a tocar. Un 3 % de reducción alcanza: se percibe como
+ * respuesta física sin llegar a leerse como animación.
+ *
+ * Va bajo `motion-safe:` en vez de confiar en la regla global de movimiento
+ * reducido: ahí el gesto sería instantáneo pero seguiría ocurriendo, y quien pide
+ * menos movimiento no debería ver saltar el botón.
+ *
+ * `scale` es una propiedad compositada: no dispara layout ni repintado.
+ */
 const BASE =
-  'inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50';
+  'inline-flex items-center justify-center gap-2 rounded-xl font-semibold tracking-[-0.01em] ' +
+  'transition-[color,background-color,border-color,scale] duration-[var(--duracion-rapida)] ease-suave ' +
+  'motion-safe:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100';
 
 interface Comun {
   variante?: Variante;

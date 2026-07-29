@@ -30,3 +30,15 @@ export const TILES = {
 } as const;
 
 export const MAX_ZOOM = 18;
+
+/**
+ * Color del trazado sobre la foto satelital, y del pin al elegir dónde queda un
+ * circuito nuevo. Es el cian de acción, que sobre terreno ocre es el que más se
+ * recorta; antes era el naranja de la marca vieja y se confundía con la tierra.
+ *
+ * Vive acá y no repetido en cada mapa: `CircuitPage`, `GpxPreview` y
+ * `LocationPicker` dibujaban el mismo color con tres literales distintos.
+ */
+export const TRACK_COLOR = '#22d3ee';
+/** Línea blanca de base: hace que el trazado se lea sobre cualquier terreno. */
+export const TRACK_CASING = '#ffffff';
