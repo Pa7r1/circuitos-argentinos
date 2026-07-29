@@ -5,11 +5,20 @@ import { useId, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttribu
  * y no solo en un toast: si el aviso vive lejos del control, la persona no sabe
  * qué corregir.
  */
+/*
+ * Campo de vidrio: un relleno de blanco al 8 % con un aro sutil. Al enfocarlo se
+ * aclara y el aro se pone cian, así que el estado se ve sin leer nada.
+ *
+ * `text-base` (16 px) no es capricho: por debajo de eso, Safari en iPhone hace zoom
+ * automático al tocar el campo y descoloca toda la pantalla.
+ */
 const CONTROL =
-  'min-h-11 w-full rounded-lg border bg-white px-3 py-2.5 text-base transition-colors placeholder:text-stone-400';
+  'min-h-11 w-full rounded-xl bg-white/8 px-3 py-2.5 text-base text-white ring-1 transition-[background-color,box-shadow] duration-[var(--duracion-rapida)] ease-suave placeholder:text-white/40 focus:bg-white/12 focus:outline-none';
 
 const borde = (error?: string) =>
-  error ? 'border-red-500 focus:border-red-600' : 'border-stone-300 focus:border-brand-600';
+  error
+    ? 'ring-red-400/70 focus:ring-2 focus:ring-red-400'
+    : 'ring-white/12 focus:ring-2 focus:ring-brand-400';
 
 function Envoltura({
   id,
@@ -26,17 +35,17 @@ function Envoltura({
 }) {
   return (
     <div>
-      <label htmlFor={id} className="mb-1 block text-sm font-medium text-stone-700">
+      <label htmlFor={id} className="mb-1.5 block text-sm font-medium text-white/80">
         {label}
       </label>
       {children}
       {error ? (
-        <p id={`${id}-error`} role="alert" className="mt-1 text-sm font-medium text-red-700">
+        <p id={`${id}-error`} role="alert" className="mt-1.5 text-sm font-medium text-red-300">
           {error}
         </p>
       ) : (
         ayuda && (
-          <p id={`${id}-ayuda`} className="mt-1 text-xs text-stone-500">
+          <p id={`${id}-ayuda`} className="mt-1.5 text-xs text-white/55">
             {ayuda}
           </p>
         )
@@ -102,7 +111,7 @@ export function VerPassword({ visible, onToggle }: { visible: boolean; onToggle:
       aria-pressed={visible}
       aria-label={visible ? 'Ocultar la contraseña' : 'Mostrar la contraseña'}
       title={visible ? 'Ocultar la contraseña' : 'Mostrar la contraseña'}
-      className="flex h-10 w-10 items-center justify-center rounded-lg text-stone-500 transition-colors duration-[var(--duracion-rapida)] hover:bg-stone-100 hover:text-stone-800"
+      className="flex h-10 w-10 items-center justify-center rounded-lg text-white/60 transition-colors duration-[var(--duracion-rapida)] hover:bg-white/12 hover:text-white"
     >
       <svg
         width="20"

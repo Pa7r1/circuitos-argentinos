@@ -60,7 +60,7 @@ export function Modal({
         aria-modal="true"
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
-        className={`panel-modal max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white p-5 shadow-2xl sm:rounded-2xl ${
+        className={`panel-modal flotante max-h-[92vh] w-full overflow-y-auto rounded-t-2xl p-5 sm:rounded-2xl ${
           size === 'lg' ? 'sm:max-w-2xl' : 'sm:max-w-md'
         }`}
       >
@@ -71,7 +71,7 @@ export function Modal({
             type="button"
             onClick={onClose}
             aria-label="Cerrar"
-            className="-mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xl text-stone-400 transition-colors duration-[var(--duracion-rapida)] hover:bg-stone-100 hover:text-stone-800"
+            className="-mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xl text-white/55 transition-colors duration-[var(--duracion-rapida)] hover:bg-white/12 hover:text-white"
           >
             ✕
           </button>

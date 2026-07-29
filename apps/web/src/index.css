@@ -39,10 +39,18 @@
  *      mira sobre fotos satelitales, así que la interfaz no compite con el mapa.
  *   3. Verde, ámbar y rojo significan estado (publicado, atención, destructivo)
  *      y no se usan decorativamente.
- *   4. El cromo que flota sobre el mapa es grafito translúcido; las pantallas de
- *      contenido (ficha, panel) siguen claras. No es un modo oscuro: es que sobre
- *      una foto satelital —que es clara y de medios tonos— el blanco al 95 % tiene
- *      MENOS contra qué recortarse que el grafito, no más. Al sol se lee mejor así.
+ *   4. Toda la app es oscura, sobre una única familia de superficies grafito. Antes
+ *      el mapa era grafito y el resto blanco, y tocar "Entrar" te tiraba de un
+ *      sistema al otro de golpe.
+ *
+ *      Esto reemplaza a la nota vieja que decía "sin modo oscuro, esto se usa al
+ *      sol": a pleno sol el blanco encandila, y blanco sobre casi negro da MÁS
+ *      contraste que negro sobre blanco, no menos. Sobre la foto satelital —que es
+ *      clara y de medios tonos— el grafito además tiene contra qué recortarse.
+ *
+ *      Las superficies no tienen color propio: son luz sobre el fondo (blanco con
+ *      alfa). Por eso una `tarjeta` funciona igual apoyada en la página o dentro de
+ *      un panel, y no hay que mantener dos escalas en paralelo.
  */
 @theme {
   /*
@@ -67,12 +75,26 @@
   --color-ink-900: #1c1917;
 
   /*
-   * Superficie del cromo flotante. El alfa es alto (0.86) a propósito: por debajo
-   * de ~0.8 la foto satelital se cuela y el texto blanco empieza a pelearse con
-   * los ocres del terreno. El blur está para suavizar ese fondo, no para dejarlo ver.
+   * Escala de superficies. Una sola familia para toda la app: antes el mapa era
+   * grafito y el resto blanco, así que tocar "Entrar" te tiraba de un sistema al
+   * otro de golpe.
+   *
+   * El neutro es cálido (una pizca de piedra) y no negro puro: conversa con el ocre
+   * del terreno satelital en vez de pelearse con él, y el blanco del texto se lee
+   * con menos dureza.
+   */
+  /* fondo opaco de las páginas */
+  --color-fondo: oklch(0.16 0.006 60);
+  /*
+   * Panel apoyado sobre el mapa. El alfa es alto (0.86) a propósito: por debajo de
+   * ~0.8 la foto satelital se cuela y el texto blanco empieza a pelearse con los
+   * ocres del terreno. El desenfoque está para suavizar ese fondo, no para dejarlo ver.
    */
   --color-superficie: oklch(0.19 0.008 60 / 0.86);
   --color-superficie-solida: oklch(0.19 0.008 60);
+  /* vidrio sobre el fondo: no es un color propio, es luz encima del fondo */
+  --color-tarjeta: rgb(255 255 255 / 0.055);
+  --color-linea: rgb(255 255 255 / 0.11);
 
   /*
    * Una sola familia. Los títulos se separan por peso y tracking, no por otra
@@ -129,8 +151,18 @@ body,
   height: 100%;
 }
 
+/*
+ * Le avisa al navegador que la interfaz es oscura. Sin esto, lo que dibuja el
+ * sistema operativo y no nosotros —la lista desplegada de un `select`, las barras
+ * de scroll, el calendario de un `date`— sale en claro y canta.
+ */
+:root {
+  color-scheme: dark;
+}
+
 body {
-  @apply bg-stone-100 font-sans text-stone-900 antialiased;
+  background-color: var(--color-fondo);
+  @apply font-sans text-white antialiased;
 }
 
 /*
@@ -153,7 +185,8 @@ h2 {
  * satelital, y sin foco visible la app no se puede recorrer con teclado.
  */
 :focus-visible {
-  outline: 2px solid var(--color-brand-600);
+  /* el 400 y no el 600: sobre superficie oscura el cian profundo casi no se ve */
+  outline: 2px solid var(--color-brand-400);
   outline-offset: 2px;
   border-radius: 0.35rem;
 }
@@ -167,12 +200,25 @@ h2 {
  */
 @utility flotante {
   background-color: var(--color-superficie);
-  @apply text-white shadow-float ring-1 ring-white/12 backdrop-blur-md;
+  @apply text-white shadow-float ring-1 ring-white/12 backdrop-blur-xl;
+  /*
+   * El brillo del borde superior es lo que hace que se lea como vidrio y no como un
+   * rectángulo gris: imita la luz que engancha el canto de una lámina. Va como
+   * `inset` para no sumar una sombra más al elemento.
+   */
+  box-shadow:
+    inset 0 1px 0 0 rgb(255 255 255 / 0.09),
+    var(--shadow-float);
 }
 
-/** Tarjeta de contenido sobre fondo claro. */
+/**
+ * Tarjeta de contenido. No tiene color propio: es luz sobre el fondo, así que
+ * funciona igual apoyada sobre el fondo de la página o sobre un panel.
+ */
 @utility tarjeta {
-  @apply rounded-xl border border-stone-200 bg-white shadow-card;
+  background-color: var(--color-tarjeta);
+  border-color: var(--color-linea);
+  @apply rounded-xl border text-white backdrop-blur-sm;
 }
 
 @keyframes pulse-soft {
@@ -182,7 +228,8 @@ h2 {
 }
 
 .skeleton {
-  @apply rounded bg-stone-200;
+  background-color: var(--color-tarjeta);
+  @apply rounded;
   animation: pulse-soft 1.5s ease-in-out infinite;
 }
 

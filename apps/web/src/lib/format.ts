@@ -32,23 +32,26 @@ export const DISCIPLINE_LETTER: Record<string, string> = {
 };
 
 /**
- * Dificultad sobre superficie grafito. Las clases de `DIFFICULTY_BADGE` son de
- * fondo claro y ahí quedan ilegibles, así que la escala oscura tiene su propio
- * mapa: verde → ámbar → naranja → rojo, que se lee como una progresión aunque no
- * se distingan los colores entre sí, porque el orden va acompañado del texto.
+ * Dificultad. Verde → ámbar → naranja → rojo se lee como una progresión, pero el
+ * color nunca va solo: siempre lo acompaña la palabra.
+ *
+ * Antes había dos mapas —uno para fondo claro y otro para la hoja del mapa— y se
+ * desincronizaban. Ahora que toda la app es oscura queda uno solo: fondo tenue del
+ * mismo tono y texto claro, que es lo que llega a contraste sobre grafito.
  */
-export const DIFFICULTY_ON_DARK: Record<Difficulty, string> = {
-  facil: 'text-green-400',
-  intermedio: 'text-amber-400',
-  dificil: 'text-orange-400',
-  extremo: 'text-red-400',
+export const DIFFICULTY_BADGE: Record<Difficulty, string> = {
+  facil: 'bg-green-500/15 text-green-300',
+  intermedio: 'bg-amber-500/15 text-amber-300',
+  dificil: 'bg-orange-500/15 text-orange-300',
+  extremo: 'bg-red-500/15 text-red-300',
 };
 
-export const DIFFICULTY_BADGE: Record<Difficulty, string> = {
-  facil: 'bg-green-100 text-green-800',
-  intermedio: 'bg-yellow-100 text-yellow-800',
-  dificil: 'bg-orange-100 text-orange-800',
-  extremo: 'bg-red-100 text-red-800',
+/** Solo el color del texto, para cuando el fondo lo pone otro. */
+export const DIFFICULTY_TEXT: Record<Difficulty, string> = {
+  facil: 'text-green-300',
+  intermedio: 'text-amber-300',
+  dificil: 'text-orange-300',
+  extremo: 'text-red-300',
 };
 
 export const ACCESS_LABEL: Record<AccessType, string> = {

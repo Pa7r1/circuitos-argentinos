@@ -22,11 +22,16 @@ const VARIANTE: Record<Variante, string> = {
    * estado tiene más contraste que el anterior, no menos.
    */
   primary:
-    'bg-brand-700 text-white hover:bg-brand-800 active:bg-brand-900 shadow-[0_1px_2px_rgb(22_78_99/.3),0_4px_12px_-2px_rgb(8_145_178/.3)]',
-  secondary: 'border border-stone-300 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-50',
-  ghost: 'text-stone-700 hover:bg-stone-100',
-  danger: 'text-red-700 hover:bg-red-50',
-  success: 'bg-green-700 text-white hover:bg-green-800',
+    'bg-brand-700 text-white hover:bg-brand-800 active:bg-brand-900 shadow-[0_1px_2px_rgb(22_78_99/.4),0_6px_16px_-4px_rgb(8_145_178/.45)]',
+  /*
+   * Sobre superficie oscura, el secundario es vidrio: relleno de blanco al 10 % con
+   * aro. Un botón blanco con borde gris —lo que era antes— pesaba más que el
+   * primario y le robaba la atención.
+   */
+  secondary: 'bg-white/10 text-white ring-1 ring-white/15 hover:bg-white/16',
+  ghost: 'text-white/80 hover:bg-white/10 hover:text-white',
+  danger: 'text-red-300 hover:bg-red-500/15 hover:text-red-200',
+  success: 'bg-green-600 text-white hover:bg-green-500',
 };
 
 /** 44 px de alto mínimo en todos los tamaños: es el objetivo táctil accesible. */
