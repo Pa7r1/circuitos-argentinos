@@ -12,7 +12,13 @@ export function ExternalMapEmbed({ url, className = '' }: { url: string; classNa
   return (
     <section className={className}>
       {mapa.embedUrl ? (
-        <div className="overflow-hidden rounded-xl border border-stone-200 bg-stone-200">
+        /*
+          `aspect-video` con tope de alto: el video de Relive es apaisado, pero sin
+          el tope, en un monitor ancho la proporción 16:9 lo estira hasta ocupar
+          pantallas enteras y hay que hacer scroll para ver qué había debajo.
+          El `mx-auto` lo mantiene centrado cuando el tope recorta el ancho.
+        */
+        <div className="mx-auto max-h-[70vh] w-full overflow-hidden rounded-xl border border-white/10 bg-black shadow-card">
           <iframe
             src={mapa.embedUrl}
             title={`Recorrido del circuito en ${mapa.providerName}`}
@@ -21,12 +27,12 @@ export function ExternalMapEmbed({ url, className = '' }: { url: string; classNa
             sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
             referrerPolicy="no-referrer"
             allowFullScreen
-            className="block aspect-video w-full border-0"
+            className="block aspect-video max-h-[70vh] w-full border-0"
           />
         </div>
       ) : (
-        <p className="rounded-xl border border-stone-200 bg-stone-50 p-3 text-sm text-stone-600">
-          El recorrido está publicado en <strong className="text-stone-900">{mapa.providerName}</strong>
+        <p className="tarjeta p-3 text-sm text-white/70">
+          El recorrido está publicado en <strong className="text-white">{mapa.providerName}</strong>
           , que no permite mostrarlo acá dentro.
         </p>
       )}
@@ -35,7 +41,7 @@ export function ExternalMapEmbed({ url, className = '' }: { url: string; classNa
         href={mapa.url}
         target="_blank"
         rel="noopener noreferrer"
-        className="mt-2 inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-brand-700 hover:text-brand-800"
+        className="mt-2 inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-brand-300 hover:text-brand-200"
       >
         Ver el recorrido en {mapa.providerName}
         <span aria-hidden="true">↗</span>

@@ -7,6 +7,7 @@ import {
   DAY_LABEL,
   DIFFICULTY_BADGE,
   DIFFICULTY_LABEL,
+  DISCIPLINE_COLOR,
   formatKm,
 } from '../../lib/format';
 import { api, API_URL, RequestError } from '../../lib/api';
@@ -62,9 +63,11 @@ function TrackMap({ circuit, track }: { circuit: CircuitDetail; track: GeoJsonLi
 
   return (
     <div className="relative">
+      {/* el trazado es lo que responde "¿esto es para mí?": crece con la pantalla
+          en vez de quedar en una franja del mismo alto en un monitor de 27" */}
       <div
         ref={containerRef}
-        className="h-64 w-full bg-stone-300 sm:h-80"
+        className="h-72 w-full bg-stone-800 sm:h-96 lg:h-[30rem]"
         aria-label={`Trazado del circuito ${circuit.name}`}
       />
       <MapLayerToggle layer={layer} onChange={setLayer} className="absolute bottom-3 left-3 z-[500]" />
@@ -118,15 +121,22 @@ function VisorFoto({ src, onClose }: { src: string; onClose: () => void }) {
   );
 }
 
+/** Esqueleto con la misma forma que la ficha, para que al cargar nada se mueva. */
 function DetailSkeleton({ despertando }: { despertando: boolean }) {
   return (
-    <div className="mx-auto max-w-2xl p-4" aria-busy="true" aria-label="Cargando circuito">
-      <div className="skeleton mb-4 h-64 w-full" />
-      <div className="skeleton mb-2 h-8 w-2/3" />
-      <div className="skeleton mb-4 h-4 w-1/3" />
-      <div className="skeleton h-24 w-full" />
+    <div className="min-h-full" aria-busy="true" aria-label="Cargando circuito">
+      <div className="skeleton h-72 w-full rounded-none sm:h-96 lg:h-[30rem]" />
+      <div className="mx-auto max-w-6xl px-4 pt-5 lg:pt-8">
+        <div className="skeleton mb-2 h-4 w-24" />
+        <div className="skeleton mb-2 h-9 w-2/3" />
+        <div className="skeleton h-4 w-40" />
+      </div>
+      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-8">
+        <div className="skeleton h-40 w-full rounded-xl" />
+        <div className="skeleton order-first h-56 w-full rounded-xl lg:order-none" />
+      </div>
       {despertando && (
-        <p className="mt-4 text-center text-sm text-stone-600">
+        <p className="px-4 text-center text-sm text-white/65">
           Despertando el servidor, puede tardar un minuto…
         </p>
       )}
@@ -140,16 +150,16 @@ function Peaje({ onEntrar }: { onEntrar: () => void }) {
     <main className="mx-auto flex min-h-full max-w-md flex-col justify-center p-6">
       <div className="tarjeta p-6 text-center">
         <h1 className="mb-2 titulo text-2xl">Creá tu cuenta para ver este circuito</h1>
-        <p className="mb-5 text-stone-600">El mapa es libre. Con tu cuenta, además, vas a poder:</p>
+        <p className="mb-5 text-white/70">El mapa es libre. Con tu cuenta, además, vas a poder:</p>
         {/* qué gana la persona, en concreto: el registro se justifica solo */}
-        <ul className="mb-6 space-y-2 text-left text-sm text-stone-700">
+        <ul className="mb-6 space-y-2 text-left text-sm text-white/80">
           {[
             'Ver el trazado completo sobre la foto satelital',
             'Saber cómo se entra y en qué horarios',
             'Descargar el GPX para tu GPS, Strava o Wikiloc',
           ].map((texto) => (
             <li key={texto} className="flex gap-2">
-              <span aria-hidden="true" className="font-bold text-brand-600">
+              <span aria-hidden="true" className="font-bold text-brand-400">
                 ✓
               </span>
               {texto}
@@ -162,7 +172,7 @@ function Peaje({ onEntrar }: { onEntrar: () => void }) {
       </div>
       <Link
         to="/"
-        className="mt-4 py-2 text-center text-sm font-medium text-stone-600 hover:text-stone-900"
+        className="mt-4 py-2 text-center text-sm font-medium text-white/65 hover:text-white"
       >
         ← Volver al mapa
       </Link>
@@ -198,12 +208,16 @@ export function CircuitPage() {
   if (isPending) return <DetailSkeleton despertando={despertando} />;
   if (isError || !circuit) {
     return (
-      <main className="mx-auto max-w-2xl p-6 text-center">
-        <h1 className="mb-2 titulo text-xl">Circuito no encontrado</h1>
-        <p className="mb-4 text-stone-600">Puede que ya no esté publicado.</p>
-        <Link to="/" className="font-medium text-brand-700 underline">
-          Volver al mapa
-        </Link>
+      <main className="mx-auto flex min-h-full max-w-md flex-col justify-center p-6">
+        <div className="tarjeta p-6 text-center">
+          <h1 className="titulo mb-2 text-xl">Circuito no encontrado</h1>
+          <p className="mb-5 text-white/70">
+            Puede que ya no esté publicado o que el enlace esté mal escrito.
+          </p>
+          <ButtonLink to="/" variante="primary" tamano="lg" ancho>
+            Volver al mapa
+          </ButtonLink>
+        </div>
       </main>
     );
   }
@@ -216,193 +230,271 @@ export function CircuitPage() {
     : `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`;
   const warnAccess = circuit.accessType !== 'libre' || circuit.accessNotes;
 
+  const descargarGpx = async () => {
+    try {
+      const blob = await api.downloadGpx(circuit.slug);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${circuit.slug}.gpx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast('Este circuito todavía no tiene archivo GPX para descargar.');
+    }
+  };
+
   return (
-    <main className="mx-auto max-w-2xl bg-white pb-8 shadow-sm">
-      <nav className="sticky top-0 z-10 flex items-center gap-2 border-b border-stone-200 bg-white/95 p-2 backdrop-blur">
+    /*
+      pb-28 en teléfono deja lugar para la barra de acciones fija; sin eso, el
+      último bloque de contenido queda debajo de la barra y no se puede leer.
+    */
+    <main className="min-h-full pb-28 lg:pb-12">
+      {/* trazado propio si vino de un GPX; si no, el recorrido publicado en otra app */}
+      <div className="relative">
+        {circuit.track ? (
+          <TrackMap circuit={circuit} track={circuit.track} />
+        ) : (
+          circuit.externalMapUrl && (
+            <div className="mx-auto max-w-5xl px-4 pt-4">
+              <ExternalMapEmbed url={circuit.externalMapUrl} />
+            </div>
+          )
+        )}
+
+        {/*
+          El volver flota sobre el mapa, igual que los controles del mapa principal:
+          encadena con la pantalla de la que venís y recupera el alto que ocupaba una
+          barra blanca que no hacía nada más que eso.
+        */}
         <Link
           to="/"
-          className="flex min-h-11 items-center gap-1 rounded-lg px-3 font-medium text-stone-700 hover:bg-stone-100"
+          className="flotante absolute top-3 left-3 z-[500] inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold transition-colors duration-[var(--duracion-rapida)] ease-suave hover:bg-white/12 motion-safe:active:scale-[0.97]"
         >
           <span aria-hidden="true">←</span> Volver al mapa
         </Link>
-      </nav>
+      </div>
 
-      {/* trazado propio si vino de un GPX; si no, el recorrido publicado en otra app */}
-      {circuit.track ? (
-        <TrackMap circuit={circuit} track={circuit.track} />
-      ) : (
-        circuit.externalMapUrl && (
-          <ExternalMapEmbed url={circuit.externalMapUrl} className="px-4 pt-1" />
-        )
-      )}
+      {/*
+        Dos columnas en escritorio y una en teléfono. Antes era una columna de 672 px
+        centrada en un monitor de 1440: media pantalla vacía a los lados, el mapa chico
+        y las acciones perdiéndose apenas se bajaba.
+      */}
+      {/*
+        El encabezado va FUERA de la grilla. Adentro, con el aside en `order-first`
+        para que en teléfono los datos quedaran antes del contenido, terminaba
+        apareciendo la tabla de kilómetros ANTES del nombre del circuito: primero hay
+        que saber qué estás mirando y después cuánto mide.
+      */}
+      <header className="mx-auto max-w-6xl px-4 pt-5 lg:pt-8">
+        <p className="mb-1 flex items-center gap-2 text-sm font-semibold tracking-[0.06em] text-white/60 uppercase">
+          <span
+            aria-hidden="true"
+            className="inline-block h-2.5 w-2.5 rounded-full"
+            style={{ backgroundColor: DISCIPLINE_COLOR[circuit.discipline] }}
+          />
+          {DISCIPLINES.find((d) => d.slug === circuit.discipline)?.name}
+        </p>
+        <h1 className="titulo text-3xl lg:text-4xl">{circuit.name}</h1>
+        <p className="mt-1.5 text-white/65">
+          {circuit.locality ? `${circuit.locality}, ` : ''}
+          {circuit.provinceName}
+        </p>
+      </header>
 
-      <div className="p-4">
-        <div className="mb-4">
-          <h1 className="titulo text-2xl text-stone-900">{circuit.name}</h1>
-          <p className="mt-1 flex flex-wrap items-center gap-x-2 text-stone-600">
-            <span>
-              {circuit.locality ? `${circuit.locality}, ` : ''}
-              {circuit.provinceName}
-            </span>
-            <span aria-hidden="true">·</span>
-            <span>{DISCIPLINES.find((d) => d.slug === circuit.discipline)?.name}</span>
-            <span
-              className={`rounded-full px-2.5 py-0.5 text-sm font-medium ${DIFFICULTY_BADGE[circuit.difficulty]}`}
-            >
-              {DIFFICULTY_LABEL[circuit.difficulty]}
-            </span>
-          </p>
+      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-8 lg:py-6">
+        <div className="min-w-0">
+          {/* si el circuito tiene trazado propio y además enlace, van los dos */}
+          {circuit.track && circuit.externalMapUrl && (
+            <section className="mb-8">
+              <h2 className="titulo mb-3 text-lg">Recorrido en video</h2>
+              <ExternalMapEmbed url={circuit.externalMapUrl} />
+            </section>
+          )}
+
+          {circuit.description && (
+            <section className="tarjeta mb-6 p-5">
+              <h2 className="titulo mb-2 text-lg">Sobre el circuito</h2>
+              <p className="whitespace-pre-line text-white/80">{circuit.description}</p>
+            </section>
+          )}
+
+          {circuit.schedules.length > 0 && (
+            <section className="tarjeta mb-6 p-5">
+              <h2 className="titulo mb-3 text-lg">Horarios</h2>
+              <table className="w-full text-sm">
+                <thead className="sr-only">
+                  <tr>
+                    <th>Día</th>
+                    <th>Horario</th>
+                    <th>Nota</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {circuit.schedules.map((s, i) => (
+                    <tr key={i} className="border-b border-white/8 last:border-0">
+                      <td className="py-2.5 font-medium text-white/90">
+                        {DAY_LABEL[s.dayOfWeek]}
+                      </td>
+                      <td className="py-2.5 text-right tabular-nums sm:text-left">
+                        {s.opens && s.closes ? `${s.opens} a ${s.closes}` : 'Consultar'}
+                      </td>
+                      <td className="py-2.5 text-right text-white/55">{s.note}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          )}
+
+          {circuit.media.length > 0 && (
+            <section>
+              <h2 className="titulo mb-1 text-lg">Fotos del lugar</h2>
+              <p className="mb-3 text-sm text-white/60">
+                La entrada, el estado del terreno y las referencias para llegar.
+              </p>
+              {/* dos columnas en teléfono y tres en escritorio: con el ancho nuevo,
+                  dos fotos quedarían enormes y con menos detalle útil por pantalla */}
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+                {circuit.media.map((m) => (
+                  <button
+                    key={m.url}
+                    onClick={() => setFoto(`${API_URL}${m.url}`)}
+                    className="group aspect-[4/3] overflow-hidden rounded-xl bg-white/6 ring-1 ring-white/10 transition-shadow duration-[var(--duracion-media)] hover:shadow-card"
+                    aria-label="Ver la foto en grande"
+                  >
+                    <img
+                      src={`${API_URL}${m.url}`}
+                      alt={`Foto del circuito ${circuit.name}`}
+                      loading="lazy"
+                      decoding="async"
+                      // el contenedor reserva la proporción, así que la página no
+                      // salta cuando la foto termina de bajar
+                      className="h-full w-full object-cover transition-transform duration-[var(--duracion-media)] ease-suave motion-safe:group-hover:scale-105"
+                    />
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
-
-        {/* los dos números que definen si el circuito es para vos, grandes y juntos */}
-        <dl className="mb-4 grid grid-cols-2 gap-2">
-          <div className="tarjeta px-4 py-3">
-            <dt className="text-xs font-medium tracking-wide text-stone-500 uppercase">Distancia</dt>
-            <dd className="titulo text-2xl tabular-nums">{formatKm(circuit.distanceM)}</dd>
-          </div>
-          <div className="tarjeta px-4 py-3">
-            <dt className="text-xs font-medium tracking-wide text-stone-500 uppercase">Desnivel</dt>
-            <dd className="titulo text-2xl tabular-nums">
-              {circuit.elevationGainM !== null ? `${circuit.elevationGainM} m` : '—'}
-            </dd>
-          </div>
-        </dl>
 
         {/*
-          El acceso solo ocupa lugar cuando condiciona el viaje. "Acceso libre" sin
-          aclaraciones es una buena noticia de dos palabras: metida en una caja del
-          mismo tamaño que una advertencia, pedía una atención que no necesita.
+          Los datos y las acciones, juntos y pegajosos en escritorio: acompañan la
+          lectura en vez de quedar arriba de todo. En teléfono es una tarjeta más,
+          antes del contenido, y las acciones se repiten en la barra fija de abajo.
         */}
-        {warnAccess ? (
-          <div className="mb-6 flex gap-2.5 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-            <span aria-hidden="true" className="mt-px">
-              ⚠
-            </span>
-            <div>
-              <p className="font-semibold">{ACCESS_LABEL[circuit.accessType]}</p>
-              {circuit.accessNotes && <p className="mt-1">{circuit.accessNotes}</p>}
+        <aside className="order-first lg:order-none lg:col-start-2 lg:row-start-1">
+          <div className="tarjeta overflow-hidden lg:sticky lg:top-6">
+            <dl className="grid grid-cols-2 divide-x divide-white/10 border-b border-white/10">
+              <Dato etiqueta="Recorrido" valor={formatKm(circuit.distanceM)} />
+              <Dato
+                etiqueta="Desnivel"
+                valor={circuit.elevationGainM !== null ? `${circuit.elevationGainM} m` : '—'}
+              />
+            </dl>
+
+            <dl className="divide-y divide-white/8 px-5 text-sm">
+              <div className="flex items-center justify-between gap-3 py-2.5">
+                <dt className="text-white/55">Dificultad</dt>
+                <dd
+                  className={`rounded-full px-2.5 py-0.5 font-semibold ${DIFFICULTY_BADGE[circuit.difficulty]}`}
+                >
+                  {DIFFICULTY_LABEL[circuit.difficulty]}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-3 py-2.5">
+                <dt className="text-white/55">Acceso</dt>
+                <dd
+                  className={`text-right font-semibold ${warnAccess ? 'text-amber-300' : 'text-green-300'}`}
+                >
+                  {ACCESS_LABEL[circuit.accessType]}
+                </dd>
+              </div>
+            </dl>
+
+            {/* la aclaración del acceso es lo que puede arruinar el viaje: va entera */}
+            {circuit.accessNotes && (
+              <p className="mx-5 mb-4 flex gap-2 rounded-xl border border-amber-400/30 bg-amber-500/12 p-3 text-sm text-amber-200">
+                <span aria-hidden="true">⚠</span>
+                {circuit.accessNotes}
+              </p>
+            )}
+
+            {/* en escritorio las acciones viven acá; en teléfono, en la barra fija */}
+            <div className="hidden px-5 pb-5 lg:block">
+              <Acciones
+                directionsUrl={directionsUrl}
+                hasGpx={circuit.hasGpx}
+                onDescargar={descargarGpx}
+              />
             </div>
           </div>
-        ) : (
-          <p className="mb-6 flex items-center gap-1.5 text-sm font-medium text-green-800">
-            <span aria-hidden="true">✓</span>
-            {ACCESS_LABEL[circuit.accessType]}
-          </p>
-        )}
+        </aside>
+      </div>
 
-        <div className="mb-6 grid gap-2 sm:grid-cols-2">
-          {/* una sola acción primaria: llegar. Bajar el GPX es para después */}
-          <ButtonLink
-            to={directionsUrl}
-            variante="primary"
-            tamano="lg"
-            ancho
-            className={circuit.hasGpx ? '' : 'sm:col-span-2'}
-          >
-            Cómo llegar
-          </ButtonLink>
-          {/* sin archivo no se ofrece la descarga: sería un botón que da error */}
-          {circuit.hasGpx && (
-          <Button
-            variante="secondary"
-            tamano="lg"
-            ancho
-            onClick={async () => {
-              try {
-                const blob = await api.downloadGpx(circuit.slug);
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `${circuit.slug}.gpx`;
-                a.click();
-                URL.revokeObjectURL(url);
-              } catch {
-                toast('Este circuito todavía no tiene archivo GPX para descargar.');
-              }
-            }}
-          >
-            Descargar GPX
-          </Button>
-          )}
-          {circuit.hasGpx && (
-            <p className="text-xs text-stone-500 sm:col-span-2">
-              El GPX se abre en Strava, Relive, Wikiloc o tu GPS.
-            </p>
-          )}
-        </div>
-
-        {/* si el circuito tiene trazado propio y además enlace, van los dos */}
-        {circuit.track && circuit.externalMapUrl && (
-          <section className="mb-6">
-            <h2 className="mb-2 text-lg font-semibold">Recorrido en video</h2>
-            <ExternalMapEmbed url={circuit.externalMapUrl} />
-          </section>
-        )}
-
-        {circuit.schedules.length > 0 && (
-          <section className="mb-6">
-            <h2 className="mb-2 text-lg font-semibold">Horarios</h2>
-            <table className="w-full text-sm">
-              <thead className="sr-only">
-                <tr>
-                  <th>Día</th>
-                  <th>Horario</th>
-                  <th>Nota</th>
-                </tr>
-              </thead>
-              <tbody>
-                {circuit.schedules.map((s, i) => (
-                  <tr key={i} className="border-b border-stone-100">
-                    <td className="py-2 font-medium">{DAY_LABEL[s.dayOfWeek]}</td>
-                    <td className="py-2">
-                      {s.opens && s.closes ? `${s.opens} a ${s.closes}` : 'Consultar'}
-                    </td>
-                    <td className="py-2 text-stone-500">{s.note}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
-        )}
-
-        {circuit.description && (
-          <section className="mb-6">
-            <h2 className="mb-2 text-lg font-semibold">Descripción</h2>
-            <p className="whitespace-pre-line text-stone-700">{circuit.description}</p>
-          </section>
-        )}
-
-        {circuit.media.length > 0 && (
-          <section>
-            <h2 className="mb-2 text-lg font-semibold">Fotos del lugar</h2>
-            <p className="mb-2 text-sm text-stone-500">
-              La entrada, el estado del terreno y las referencias para llegar.
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              {circuit.media.map((m) => (
-                <button
-                  key={m.url}
-                  onClick={() => setFoto(`${API_URL}${m.url}`)}
-                  className="group aspect-[4/3] overflow-hidden rounded-xl bg-stone-200"
-                  aria-label="Ver la foto en grande"
-                >
-                  <img
-                    src={`${API_URL}${m.url}`}
-                    alt={`Foto del circuito ${circuit.name}`}
-                    loading="lazy"
-                    decoding="async"
-                    // el contenedor reserva la proporción, así que la página no
-                    // salta cuando la foto termina de bajar
-                    className="h-full w-full object-cover transition-transform duration-[var(--duracion-media)] ease-suave motion-safe:group-hover:scale-105"
-                  />
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
+      {/*
+        Barra de acciones fija en teléfono. Quien está mirando las fotos y decide ir
+        tenía que volver a subir hasta los botones; acá quedan siempre al alcance del
+        pulgar. El padding inferior respeta el área segura del teléfono.
+      */}
+      <div className="flotante fixed right-0 bottom-0 left-0 z-[600] px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
+        <Acciones
+          directionsUrl={directionsUrl}
+          hasGpx={circuit.hasGpx}
+          onDescargar={descargarGpx}
+          oscuro
+        />
       </div>
 
       {foto && <VisorFoto src={foto} onClose={() => setFoto(null)} />}
     </main>
+  );
+}
+
+/** Una cifra grande con su etiqueta. */
+function Dato({ etiqueta, valor }: { etiqueta: string; valor: string }) {
+  return (
+    <div className="px-5 py-4">
+      <dt className="text-xs font-medium tracking-wide text-white/55 uppercase">{etiqueta}</dt>
+      <dd className="titulo text-2xl tabular-nums">{valor}</dd>
+    </div>
+  );
+}
+
+/**
+ * Las dos acciones de la ficha. Se usan en dos lugares —la tarjeta lateral en
+ * escritorio y la barra fija en teléfono— y por eso viven en un componente: eran la
+ * misma botonera copiada, y una copia siempre se termina desviando de la otra.
+ */
+function Acciones({
+  directionsUrl,
+  hasGpx,
+  onDescargar,
+  oscuro = false,
+}: {
+  directionsUrl: string;
+  hasGpx: boolean;
+  onDescargar: () => void;
+  oscuro?: boolean;
+}) {
+  return (
+    <div className="flex gap-2">
+      <ButtonLink to={directionsUrl} variante="primary" tamano="lg" ancho>
+        Cómo llegar
+      </ButtonLink>
+      {/* sin archivo no se ofrece la descarga: sería un botón que da error */}
+      {hasGpx && (
+        <Button
+          variante={oscuro ? 'ghost' : 'secondary'}
+          tamano="lg"
+          onClick={onDescargar}
+          className={oscuro ? 'shrink-0 text-white hover:bg-white/15' : 'shrink-0'}
+          title="Descargar el GPX para el GPS, Strava o Wikiloc"
+        >
+          GPX
+        </Button>
+      )}
+    </div>
   );
 }
