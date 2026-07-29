@@ -1,11 +1,11 @@
 # Circuitos Argentinos
 
-PWA para descubrir circuitos off-road (enduro, motocross, MTB) en Argentina. Mapa público con circuitos publicados y panel de administración para cargarlos desde archivos GPX.
+PWA para descubrir circuitos off-road (enduro, motocross, MTB) en Argentina. Mapa público con circuitos publicados y panel de administración para cargarlos desde un archivo GPX o desde el enlace al recorrido en Relive, Strava o Wikiloc.
 
 ## Stack
 
 - **API**: Fastify + TypeScript + Drizzle ORM + PostgreSQL/PostGIS
-- **Web**: React 18 + Vite + TypeScript + MapLibre GL (PWA)
+- **Web**: React 18 + Vite + TypeScript + Leaflet (PWA)
 - **Monorepo**: pnpm workspaces · **Infra**: Docker Compose · Node 22
 
 ## Estructura
