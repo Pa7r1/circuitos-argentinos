@@ -12,19 +12,41 @@ let cached: Leaflet | null = null;
  */
 export const MAP_OPTIONS = { zoomControl: false, zoomSnap: 0.25 } as const;
 
+let cargando: Promise<Leaflet> | null = null;
+
 /**
- * Carga Leaflet bajo demanda para que el shell de la pantalla pinte antes
- * (y su CSS junto con él).
+ * Arranca la descarga de Leaflet apenas se evalúa este módulo, sin esperar a que
+ * un componente se monte.
+ *
+ * Medido: el elemento más grande de la primera pantalla es un tile satelital, y
+ * antes no se podía pedir hasta que React renderizara y recién ahí se disparara el
+ * import dinámico. Eso encadenaba tres esperas en serie. Las tres rutas de la app
+ * usan mapa, así que no hay caso en el que esta descarga sobre.
+ *
+ * Sigue siendo un import dinámico: Leaflet no entra al bundle inicial y la pantalla
+ * pinta antes, pero ahora su descarga corre en paralelo en vez de a continuación.
  */
+function cargarLeaflet(): Promise<Leaflet> {
+  cargando ??= Promise.all([import('leaflet'), import('leaflet/dist/leaflet.css')]).then(
+    ([mod]) => {
+      cached = mod.default ?? mod;
+      return cached;
+    },
+  );
+  return cargando;
+}
+
+void cargarLeaflet();
+
+/** Leaflet ya cargado, o `null` mientras baja. */
 export function useLeaflet(): Leaflet | null {
   const [L, setL] = useState<Leaflet | null>(cached);
 
   useEffect(() => {
     if (cached) return;
     let alive = true;
-    void Promise.all([import('leaflet'), import('leaflet/dist/leaflet.css')]).then(([mod]) => {
-      cached = mod.default ?? mod;
-      if (alive) setL(cached);
+    void cargarLeaflet().then((mod) => {
+      if (alive) setL(mod);
     });
     return () => {
       alive = false;
