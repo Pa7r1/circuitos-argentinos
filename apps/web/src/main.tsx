@@ -6,6 +6,7 @@ import { ToastProvider } from './components/Toast';
 import { RequestError } from './lib/api';
 import { CircuitPage } from './features/circuit-detail/CircuitPage';
 import { MapPage } from './features/map/MapPage';
+import { NoEncontrado } from './features/NoEncontrado';
 import './index.css';
 
 // el panel admin no forma parte del uso público: se carga solo al entrar a /admin
@@ -44,6 +45,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                 </React.Suspense>
               }
             />
+            {/*
+              Comodín. Sin esta ruta, una dirección inexistente no encontraba nada
+              que pintar y la pantalla quedaba en blanco: parecía la app rota y no
+              una página que no existe.
+            */}
+            <Route path="*" element={<NoEncontrado />} />
           </Routes>
         </BrowserRouter>
       </ToastProvider>
