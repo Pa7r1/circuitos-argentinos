@@ -24,6 +24,9 @@ import { useCircuits } from '../../lib/queries';
 import { createBaseLayers, MAP_OPTIONS, useLeaflet } from '../../lib/use-leaflet';
 import { useSession } from '../../lib/use-session';
 import { useSlowRequest } from '../../lib/use-slow-request';
+import { Tour } from '../../components/Tour';
+import { tourPendiente, marcarTourVisto, reabrirTour } from '../../lib/tour-visto';
+import { PASOS_MAPA } from './pasos-tour';
 import { AccountButton } from '../auth/AccountButton';
 import { AuthModal } from '../auth/AuthModal';
 import { PlaceSearch } from './PlaceSearch';
@@ -60,6 +63,7 @@ export function MapPage() {
   const [radiusM, setRadiusM] = useState(SEARCH_RADIUS_M);
   const [selected, setSelected] = useState<CircuitSummary | null>(null);
   const [pedirCuenta, setPedirCuenta] = useState<{ motivo?: string; irA?: string } | null>(null);
+  const [verTour, setVerTour] = useState(false);
   const toast = useToast();
   const L = useLeaflet();
   const session = useSession();
@@ -223,6 +227,8 @@ export function MapPage() {
       const el = marker.getElement();
       el?.setAttribute('role', 'button');
       el?.setAttribute('aria-label', `${circuit.name}, ${DIFFICULTY_LABEL[circuit.difficulty]}`);
+      // ancla del recorrido guiado: alcanza con que uno de los pines lo tenga
+      el?.setAttribute('data-tour', 'pin');
       marker.on('click', () => setSelected(circuit));
       marker.on('keypress', () => setSelected(circuit));
       markers.set(circuit.slug, marker);
@@ -240,6 +246,17 @@ export function MapPage() {
   useEffect(() => {
     if (isError) toast('No se pudieron cargar los circuitos. Reintentá en un momento.');
   }, [isError, toast]);
+
+  /*
+   * El recorrido espera a que los pines estén dibujados. Si arrancara antes, el
+   * paso que señala un pin no encontraría su elemento y se saltearía justo el que
+   * explica lo más importante del mapa.
+   */
+  useEffect(() => {
+    if (isPending || !tourPendiente('mapa')) return;
+    const id = setTimeout(() => setVerTour(true), 600);
+    return () => clearTimeout(id);
+  }, [isPending, circuits.length]);
 
   function selectPlace(next: Place) {
     setPlace(next);
@@ -271,7 +288,7 @@ export function MapPage() {
           después en el DOM y también tienen backdrop-filter, se pintaban encima y
           tapaban la lista. Con z-index propio, el orden deja de depender del DOM.
         */}
-        <div className="flotante relative z-20 flex items-center gap-2 rounded-2xl p-2">
+        <div data-tour="buscador" className="flotante relative z-20 flex items-center gap-2 rounded-2xl p-2">
           <PlaceSearch selected={place} onSelect={selectPlace} onClear={clearPlace} />
           {/*
             El resultado del filtro vive dentro de la barra y no en una píldora aparte:
@@ -294,7 +311,12 @@ export function MapPage() {
         </div>
 
         <div className="relative z-10 flex flex-wrap items-center gap-1.5">
-          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrar por disciplina">
+          <div
+            data-tour="chips"
+            className="flex flex-wrap gap-1.5"
+            role="group"
+            aria-label="Filtrar por disciplina"
+          >
             {DISCIPLINES.map((d) => (
               <DisciplineChip
                 key={d.slug}
@@ -320,6 +342,10 @@ export function MapPage() {
         layer={layer}
         onLayerChange={setLayer}
         onLocate={() => locateMe(true)}
+        onAyuda={() => {
+          reabrirTour('mapa');
+          setVerTour(true);
+        }}
       />
 
       {isPending && (
@@ -462,6 +488,17 @@ export function MapPage() {
             </Button>
           )}
         </div>
+      )}
+
+      {verTour && (
+        <Tour
+          etiqueta="Cómo se usa el mapa"
+          pasos={PASOS_MAPA}
+          onCerrar={() => {
+            marcarTourVisto('mapa');
+            setVerTour(false);
+          }}
+        />
       )}
 
       {pedirCuenta && (

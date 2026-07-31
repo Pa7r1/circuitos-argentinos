@@ -16,11 +16,14 @@ export function MapControls({
   layer,
   onLayerChange,
   onLocate,
+  onAyuda,
 }: {
   map: LeafletMap | null;
   layer: MapLayer;
   onLayerChange: (layer: MapLayer) => void;
   onLocate: () => void;
+  /** Vuelve a abrir el recorrido guiado. */
+  onAyuda: () => void;
 }) {
   const [zoom, setZoom] = useState<number | null>(null);
 
@@ -73,6 +76,16 @@ export function MapControls({
         className="flotante rounded-xl"
       >
         {siguienteCapa === 'satelite' ? <IconoSatelite /> : <IconoMapa />}
+      </Boton>
+
+      {/*
+        La ayuda vive acá y no escondida en el menú de cuenta: quien más la necesita
+        es justamente quien todavía no tiene cuenta.
+      */}
+      <Boton onClick={onAyuda} etiqueta="Ver cómo se usa el mapa" className="flotante rounded-xl">
+        <span aria-hidden="true" className="text-lg leading-none font-bold">
+          ?
+        </span>
       </Boton>
     </div>
   );

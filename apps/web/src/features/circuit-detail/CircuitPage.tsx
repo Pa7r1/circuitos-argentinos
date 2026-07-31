@@ -21,6 +21,9 @@ import { useSession } from '../../lib/use-session';
 import { useSlowRequest } from '../../lib/use-slow-request';
 import { useToast } from '../../components/Toast';
 import { AuthModal } from '../auth/AuthModal';
+import { Tour } from '../../components/Tour';
+import { marcarTourVisto, tourPendiente } from '../../lib/tour-visto';
+import { PASOS_FICHA } from './pasos-tour';
 
 function TrackMap({ circuit, track }: { circuit: CircuitDetail; track: GeoJsonLineString }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -76,6 +79,7 @@ function TrackMap({ circuit, track }: { circuit: CircuitDetail; track: GeoJsonLi
         ref={containerRef}
         className="h-72 w-full bg-stone-800 sm:h-96 lg:h-[30rem]"
         aria-label={`Trazado del circuito ${circuit.name}`}
+        data-tour="trazado"
       />
       <MapLayerToggle layer={layer} onChange={setLayer} className="absolute bottom-3 left-3 z-[500]" />
     </div>
@@ -193,8 +197,20 @@ export function CircuitPage() {
   const toast = useToast();
   const [pedirCuenta, setPedirCuenta] = useState(false);
   const [foto, setFoto] = useState<string | null>(null);
+  const [verTour, setVerTour] = useState(false);
   const { data: circuit, isPending, isError, error } = useCircuitDetail(slug!);
   const despertando = useSlowRequest(isPending);
+
+  /*
+   * El recorrido de la ficha espera a que el circuito esté cargado: antes de eso no
+   * existen ni el trazado ni los botones que explica. El hook va antes de cualquier
+   * `return` condicional, que es la regla de los hooks.
+   */
+  useEffect(() => {
+    if (!circuit || !tourPendiente('ficha')) return;
+    const id = setTimeout(() => setVerTour(true), 700);
+    return () => clearTimeout(id);
+  }, [circuit]);
 
   const sinSesion = !session || (error instanceof RequestError && error.statusCode === 401);
   if (sinSesion) {
@@ -392,7 +408,7 @@ export function CircuitPage() {
           antes del contenido, y las acciones se repiten en la barra fija de abajo.
         */}
         <aside className="order-first lg:order-none lg:col-start-2 lg:row-start-1">
-          <div className="tarjeta overflow-hidden lg:sticky lg:top-6">
+          <div data-tour="datos" className="tarjeta overflow-hidden lg:sticky lg:top-6">
             <dl className="grid grid-cols-2 divide-x divide-white/10 border-b border-white/10">
               <Dato etiqueta="Recorrido" valor={formatKm(circuit.distanceM)} />
               <Dato
@@ -454,6 +470,17 @@ export function CircuitPage() {
         />
       </div>
 
+      {verTour && (
+        <Tour
+          etiqueta="Cómo se usa la ficha del circuito"
+          pasos={PASOS_FICHA}
+          onCerrar={() => {
+            marcarTourVisto('ficha');
+            setVerTour(false);
+          }}
+        />
+      )}
+
       {foto && <VisorFoto src={foto} onClose={() => setFoto(null)} />}
     </main>
   );
@@ -486,7 +513,7 @@ function Acciones({
   oscuro?: boolean;
 }) {
   return (
-    <div className="flex gap-2">
+    <div data-tour="acciones" className="flex gap-2">
       <ButtonLink to={directionsUrl} variante="primary" tamano="lg" ancho>
         Cómo llegar
       </ButtonLink>

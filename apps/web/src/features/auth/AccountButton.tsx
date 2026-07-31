@@ -19,6 +19,7 @@ export function AccountButton({ onPedirCuenta }: { onPedirCuenta: () => void }) 
   if (!session) {
     return (
       <button
+        data-tour="cuenta"
         onClick={onPedirCuenta}
         // brand-700 y no brand-600: con blanco encima, el 600 se queda en 3,56:1
         // y AA pide 4,5:1 para este tamaño de texto. Ver el comentario en Button.tsx.
@@ -30,7 +31,7 @@ export function AccountButton({ onPedirCuenta }: { onPedirCuenta: () => void }) 
   }
 
   return (
-    <div className="relative shrink-0">
+    <div data-tour="cuenta" className="relative shrink-0">
       <button
         onClick={() => setAbierto((v) => !v)}
         aria-expanded={abierto}
