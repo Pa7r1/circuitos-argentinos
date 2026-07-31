@@ -65,6 +65,18 @@ export function authRepository(db: Db) {
       return created!;
     },
 
+    /**
+     * Solo el rol, para autorizar. Va aparte de `findById` porque corre en cada
+     * pedido del panel: lee una columna por clave primaria y no arrastra el hash
+     * de la contraseña ni el join con disciplinas.
+     */
+    async roleById(id: string): Promise<AuthUser['role'] | null> {
+      const rows = (await db.execute(
+        sql`SELECT role FROM users WHERE id = ${id}`,
+      )) as unknown as { role: AuthUser['role'] }[];
+      return rows[0]?.role ?? null;
+    },
+
     async countUsers(): Promise<number> {
       const rows = (await db.execute(
         sql`SELECT count(*)::int AS total FROM users`,

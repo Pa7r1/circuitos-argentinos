@@ -82,6 +82,15 @@ describe('health y públicos', () => {
     expect(res.json()).toEqual({ status: 'ok' });
   });
 
+  // nosniff es la que importa: /media sirve binarios subidos con un content-type
+  // deducido de los primeros bytes, y sin ella el navegador puede olfatear el tipo
+  it('toda respuesta lleva las cabeceras de seguridad', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/v1/health' });
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+    expect(res.headers['referrer-policy']).toBe('no-referrer');
+    expect(res.headers['x-frame-options']).toBe('DENY');
+  });
+
   it('GET /circuits lista solo publicados, respuesta liviana sin track', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/v1/circuits' });
     expect(res.statusCode).toBe(200);

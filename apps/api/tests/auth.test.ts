@@ -205,6 +205,55 @@ describe('separación de permisos', () => {
     });
     expect(panel.statusCode).toBe(200);
   });
+
+  // El rol viaja adentro del JWT y los tokens duran 30 días. Si la autorización se
+  // resolviera mirando el token, quitarle el permiso a alguien en la base no le
+  // cerraría la puerta hasta un mes después. El token dice quién sos; el permiso lo
+  // decide la base en el momento.
+  it('un token que dice admin deja de entrar si le revocaron el rol en la base', async () => {
+    const email = 'exjefa@ejemplo.com';
+    const registro = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/register',
+      payload: { name: 'Ex Jefa', email, password: USER_PASSWORD },
+    });
+    const { id } = registro.json<AuthResponse>().user;
+    await client.unsafe(`UPDATE users SET role = 'admin' WHERE email = '${email}'`);
+
+    // El token se firma acá en vez de pedir otro login por dos motivos: es
+    // exactamente lo que se quiere probar —un token bien firmado que dice admin— y
+    // /auth/login está limitado a 8 por minuto con un contador que comparte toda la
+    // suite, así que un ingreso de más hace fallar a un test que no tiene nada que ver.
+    const token = app.jwt.sign({ sub: id, role: 'admin', name: 'Ex Jefa' });
+    const cabeceras = { authorization: `Bearer ${token}` };
+
+    const antes = await app.inject({ method: 'GET', url: '/api/v1/admin/circuits', headers: cabeceras });
+    expect(antes.statusCode).toBe(200);
+
+    // se le quita el rol; el token sigue siendo válido y sigue diciendo "admin"
+    await client.unsafe(`UPDATE users SET role = 'user' WHERE email = '${email}'`);
+
+    const despues = await app.inject({ method: 'GET', url: '/api/v1/admin/circuits', headers: cabeceras });
+    expect(despues.statusCode).toBe(403);
+  });
+
+  // La credencial por variables de entorno es el rescate si se pierde el rol en la
+  // base, así que no puede depender de tener una fila en `users`.
+  it('el admin de rescate por variables de entorno sigue entrando sin fila en users', async () => {
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/admin/login',
+      payload: { user: 'admin', password: ADMIN_PASSWORD },
+    });
+    const { token } = login.json<LoginResponse>();
+
+    const panel = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/circuits',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(panel.statusCode).toBe(200);
+  });
 });
 
 describe('peaje de registro en la ficha', () => {

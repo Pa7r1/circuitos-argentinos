@@ -62,6 +62,11 @@ export function authService(repo: AuthRepository) {
       return perfil(user);
     },
 
+    /** Rol vigente en la base. `null` si la cuenta ya no existe. */
+    roleOf(id: string): Promise<AuthUser['role'] | null> {
+      return repo.roleById(id);
+    },
+
     countUsers(): Promise<number> {
       return repo.countUsers();
     },
