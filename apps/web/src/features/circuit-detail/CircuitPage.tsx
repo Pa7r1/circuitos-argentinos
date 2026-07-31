@@ -43,6 +43,13 @@ function TrackMap({ circuit, track }: { circuit: CircuitDetail; track: GeoJsonLi
     L.polyline(latLngs, { color: TRACK_COLOR, weight: 4 }).addTo(map);
     map.fitBounds(L.latLngBounds(latLngs), { padding: [30, 30] });
 
+    /*
+     * El punto de partida es una marca, no un control: no se toca ni lleva a
+     * ningún lado. Por eso `keyboard: false` además de `interactive: false` —
+     * Leaflet le pone `role="button"` y `tabindex="0"` a todo marcador salvo que
+     * se le diga que no, y quedaba un botón sin nombre en el orden de tabulación.
+     * (`alt` no sirve acá: Leaflet solo lo escribe en los iconos de imagen.)
+     */
     L.marker([circuit.startPoint.coordinates[1], circuit.startPoint.coordinates[0]], {
       icon: L.divIcon({
         className: '',
@@ -50,8 +57,8 @@ function TrackMap({ circuit, track }: { circuit: CircuitDetail; track: GeoJsonLi
         iconSize: [16, 16],
         iconAnchor: [8, 8],
       }),
-      alt: 'Punto de partida',
       interactive: false,
+      keyboard: false,
     }).addTo(map);
 
     return () => {

@@ -160,8 +160,10 @@ export function MapPage() {
               iconSize: [16, 16],
               iconAnchor: [8, 8],
             }),
-            alt: 'Tu ubicación',
+            // ver el comentario del punto de partida en CircuitPage: sin
+            // `keyboard: false` Leaflet deja un botón sin nombre tabulable
             interactive: false,
+            keyboard: false,
           }).addTo(map);
         }
       },
