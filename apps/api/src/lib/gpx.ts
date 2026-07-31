@@ -17,7 +17,26 @@ export interface GpxTrack {
  * Pipeline de procesamiento de un GPX:
  * parsear → validar (≥2 puntos) → simplificar → distancia + desnivel → punto de partida.
  */
+/**
+ * Un GPX es una lista de puntos: no necesita declaración de tipo de documento ni
+ * entidades propias. Se rechazan antes de parsear porque el parser expande las
+ * entidades internas, y con eso un archivo de pocos kilobytes puede inflarse hasta
+ * agotar la memoria del proceso (la "bomba XML"). Subir un GPX exige ser
+ * administrador, así que el riesgo real es bajo, pero la guarda cuesta tres líneas.
+ */
+function rechazarEntidades(xml: string): void {
+  // se mira solo el arranque: el prólogo del XML va antes del elemento raíz
+  const prologo = xml.slice(0, 4096);
+  if (/<!DOCTYPE/i.test(prologo) || /<!ENTITY/i.test(prologo)) {
+    throw badRequest(
+      'GPX_INVALIDO',
+      'El GPX no puede declarar un tipo de documento ni entidades propias',
+    );
+  }
+}
+
 export function processGpx(xml: string): GpxTrack {
+  rechazarEntidades(xml);
   let doc: ReturnType<DOMParser['parseFromString']>;
   try {
     doc = new DOMParser({

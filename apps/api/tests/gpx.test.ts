@@ -39,6 +39,31 @@ describe('processGpx', () => {
     }
   });
 
+  // Bomba XML: el parser expande las entidades internas, así que un archivo chico
+  // con entidades anidadas puede inflarse hasta agotar la memoria del proceso.
+  it('rechaza un GPX con entidades declaradas, sin llegar a expandirlas', () => {
+    const bomba = `<?xml version="1.0"?>
+      <!DOCTYPE gpx [
+        <!ENTITY a "aaaaaaaaaa">
+        <!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;">
+        <!ENTITY c "&b;&b;&b;&b;&b;&b;&b;&b;&b;&b;">
+      ]>
+      <gpx><trk><trkseg><trkpt lat="-29.4" lon="-66.8"><name>&c;</name></trkpt></trkseg></trk></gpx>`;
+    expect(() => processGpx(bomba)).toThrow(/tipo de documento ni entidades/i);
+  });
+
+  it('un GPX normal sin DOCTYPE sigue procesándose', () => {
+    // guarda de la guarda: que el rechazo no se lleve puesto el caso legítimo
+    const normal = `<?xml version="1.0"?>
+      <gpx><trk><trkseg>
+        <trkpt lat="-29.41" lon="-66.85"><ele>500</ele></trkpt>
+        <trkpt lat="-29.42" lon="-66.84"><ele>560</ele></trkpt>
+      </trkseg></trk></gpx>`;
+    const track = processGpx(normal);
+    expect(track.coordinates.length).toBeGreaterThanOrEqual(2);
+    expect(track.elevationGainM).toBe(60);
+  });
+
   it('trackToWkt genera LINESTRING y POINT válidos', () => {
     const wkt = trackToWkt([
       [-66.85, -29.41],
