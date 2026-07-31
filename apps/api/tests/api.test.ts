@@ -153,8 +153,12 @@ describe('health y públicos', () => {
     });
     expect(res.statusCode).toBe(200);
     const detail = res.json<CircuitDetail>();
-    expect(detail.track.type).toBe('LineString');
-    expect(detail.track.coordinates.length).toBeGreaterThanOrEqual(20);
+    // `track` es nullable desde que hay circuitos cargados solo con enlace: se
+    // afirma que este lo tiene antes de mirarlo adentro, así que si algún día deja
+    // de venir el test falla acá y no con un error de propiedad de undefined
+    expect(detail.track).not.toBeNull();
+    expect(detail.track?.type).toBe('LineString');
+    expect(detail.track?.coordinates.length).toBeGreaterThanOrEqual(20);
     expect(detail.provinceName).toBe('La Rioja');
   });
 

@@ -2,7 +2,10 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
-    "rootDir": "src"
+    // el paquete se compila con tsup, no con tsc: acá `tsc` solo verifica tipos
+    // (`--noEmit`), así que `rootDir` no define ninguna salida y ponerlo en `src`
+    // solo servía para dejar los tests fuera del chequeo
+    "rootDir": "."
   },
-  "include": ["src"]
+  "include": ["src", "tests", "vitest.config.ts"]
 }
