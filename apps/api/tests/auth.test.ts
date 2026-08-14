@@ -9,7 +9,8 @@ import { runSeed } from '../src/db/seed.js';
 import { createCleanTestDb } from './helpers/test-db.js';
 
 const ADMIN_PASSWORD = 'clave-de-test-123';
-const USER_PASSWORD = 'password-de-usuario';
+// no puede empezar con "password": la lista de bloqueo del registro la rechaza
+const USER_PASSWORD = 'clave-de-usuario';
 
 let app: FastifyInstance;
 let client: ReturnType<typeof createDb>['client'];
@@ -77,6 +78,10 @@ describe('registro de usuarios', () => {
 
   it('rechaza contraseñas cortas y emails inválidos', async () => {
     expect((await register({ name: 'Ana', email: 'a@b.com', password: 'corta' })).statusCode).toBe(400);
+    // larga pero de las de siempre
+    expect(
+      (await register({ name: 'Ana', email: 'a@b.com', password: 'Password12345' })).statusCode,
+    ).toBe(400);
     expect(
       (await register({ name: 'Ana', email: 'no-es-email', password: USER_PASSWORD })).statusCode,
     ).toBe(400);

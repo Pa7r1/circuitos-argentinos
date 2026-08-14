@@ -65,7 +65,7 @@ beforeAll(async () => {
   const registro = await app.inject({
     method: 'POST',
     url: '/api/v1/auth/register',
-    payload: { name: 'Lector', email: 'lector@ejemplo.com', password: 'password-de-prueba' },
+    payload: { name: 'Lector', email: 'lector@ejemplo.com', password: 'clave-de-prueba' },
   });
   userAuth = { authorization: `Bearer ${registro.json<{ token: string }>().token}` };
 });

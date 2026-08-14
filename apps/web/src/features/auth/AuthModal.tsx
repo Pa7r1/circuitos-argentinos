@@ -127,11 +127,11 @@ export function AuthModal({
           id="auth-password"
           type={verPassword ? 'text' : 'password'}
           required
-          minLength={esRegistro ? 8 : undefined}
+          minLength={esRegistro ? 10 : undefined}
           autoComplete={esRegistro ? 'new-password' : 'current-password'}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          ayuda={esRegistro ? 'Mínimo 8 caracteres.' : undefined}
+          ayuda={esRegistro ? 'Mínimo 10 caracteres. Evitá las de siempre.' : undefined}
           // el error del servidor es casi siempre de credenciales: va acá
           error={error ?? undefined}
           adorno={<VerPassword visible={verPassword} onToggle={() => setVerPassword((v) => !v)} />}

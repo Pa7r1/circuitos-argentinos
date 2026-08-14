@@ -117,7 +117,7 @@ export async function buildApp(config: Config, db: Db): Promise<FastifyInstance>
    *
    * Verificar la firma no alcanza: un token de usuario común también está bien
    * firmado. Pero mirar el rol del token TAMPOCO alcanza: el rol viaja adentro y
-   * los tokens duran 30 días, así que quitarle el permiso a alguien en la base no
+   * los tokens duran una semana, así que quitarle el permiso a alguien en la base no
    * le cerraba la puerta hasta que su token venciera. El token dice quién sos; el
    * permiso lo decide la base, en el momento.
    *

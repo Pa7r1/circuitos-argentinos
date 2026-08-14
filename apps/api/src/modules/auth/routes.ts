@@ -10,14 +10,27 @@ import { verifyAdminCredentials } from './service.js';
 const RATE_LIMIT_ENTRADA = { config: { rateLimit: { max: 8, timeWindow: '1 minute' } } };
 
 const emailSchema = z.string().trim().toLowerCase().email().max(200);
-const passwordSchema = z.string().min(8, 'mínimo 8 caracteres').max(200);
+/*
+ * Diez caracteres y fuera las cuatro de siempre. Bcrypt con coste 12 hace caro
+ * el crackeo offline, pero no protege de lo que de verdad pasa en una app
+ * pública sin segundo factor: que alguien pruebe contraseñas conocidas.
+ */
+const passwordSchema = z
+  .string()
+  .min(10, 'mínimo 10 caracteres')
+  .max(200)
+  .refine((p) => !/^(password|contrasena|contraseña|12345678|qwertyui)/i.test(p), {
+    message: 'elegí una contraseña menos común',
+  });
 
 export function authRoutes(config: Config, service: AuthService) {
   return async function routes(app: FastifyInstance): Promise<void> {
     const typed = app.withTypeProvider<ZodTypeProvider>();
 
     function sign(user: AuthUser): string {
-      return app.jwt.sign({ sub: user.id, role: user.role, name: user.name }, { expiresIn: '30d' });
+      // 7 días y no 30: el token no se puede revocar (no hay denylist), así que
+      // uno robado vale hasta que vence. Cerrar sesión solo lo borra del navegador.
+      return app.jwt.sign({ sub: user.id, role: user.role, name: user.name }, { expiresIn: '7d' });
     }
 
     // --- cuentas de usuario ---
