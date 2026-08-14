@@ -1,5 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { DISCIPLINES } from '@circuitos/shared';
 import { Button } from '../../components/Button';
 import { Field, SelectField, VerPassword } from '../../components/Field';
@@ -236,6 +237,41 @@ export function AuthModal({
               </option>
             ))}
           </SelectField>
+        )}
+
+        {esRegistro && (
+          /*
+           * `required` nativo: la validación la hace el navegador y no hay estado
+           * ni JavaScript de por medio. El servidor guarda la fecha de aceptación
+           * al crear la cuenta (users.terms_accepted_at).
+           */
+          <label className="flex cursor-pointer items-start gap-2.5 py-1 text-sm text-white/70">
+            <input
+              type="checkbox"
+              required
+              name="terminos"
+              className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-brand-600"
+            />
+            <span>
+              Leí y acepto los{' '}
+              <Link
+                to="/terminos"
+                target="_blank"
+                className="text-brand-200 underline underline-offset-4"
+              >
+                términos y condiciones
+              </Link>{' '}
+              y la{' '}
+              <Link
+                to="/privacidad"
+                target="_blank"
+                className="text-brand-200 underline underline-offset-4"
+              >
+                política de privacidad
+              </Link>
+              , incluido el descargo por el riesgo de la actividad.
+            </span>
+          </label>
         )}
 
         <Button type="submit" variante="primary" tamano="lg" ancho disabled={mutation.isPending}>

@@ -6,6 +6,8 @@ import { ToastProvider } from './components/Toast';
 import { RequestError } from './lib/api';
 import { RestablecerPage } from './features/auth/RestablecerPage';
 import { CircuitPage } from './features/circuit-detail/CircuitPage';
+import { PrivacidadPage } from './features/legal/PrivacidadPage';
+import { TerminosPage } from './features/legal/TerminosPage';
 import { MapPage } from './features/map/MapPage';
 import { NoEncontrado } from './features/NoEncontrado';
 import './index.css';
@@ -39,6 +41,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="/" element={<MapPage />} />
             <Route path="/circuitos/:slug" element={<CircuitPage />} />
             <Route path="/restablecer" element={<RestablecerPage />} />
+            <Route path="/terminos" element={<TerminosPage />} />
+            <Route path="/privacidad" element={<PrivacidadPage />} />
             <Route
               path="/admin"
               element={

@@ -1,5 +1,10 @@
+import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Button } from '../../components/Button';
+import { Field } from '../../components/Field';
+import { Modal } from '../../components/Modal';
+import { api, RequestError } from '../../lib/api';
 import { clearSession } from '../../lib/session';
 import { useSession } from '../../lib/use-session';
 
@@ -15,6 +20,7 @@ const iniciales = (nombre: string) =>
 export function AccountButton({ onPedirCuenta }: { onPedirCuenta: () => void }) {
   const session = useSession();
   const [abierto, setAbierto] = useState(false);
+  const [confirmando, setConfirmando] = useState(false);
 
   if (!session) {
     return (
@@ -69,9 +75,97 @@ export function AccountButton({ onPedirCuenta }: { onPedirCuenta: () => void }) 
             >
               Cerrar sesión
             </button>
+
+            <div className="border-t border-white/10 px-3 py-2">
+              {/*
+                El borrado va acá abajo, separado y sin ser lo primero que se toca:
+                es irreversible. La política de privacidad promete este derecho
+                (ley 25.326), así que tiene que existir de verdad y no por correo.
+              */}
+              <button
+                onClick={() => {
+                  setAbierto(false);
+                  setConfirmando(true);
+                }}
+                className="min-h-9 text-xs text-white/50 underline-offset-4 hover:text-white/80 hover:underline"
+              >
+                Borrar mi cuenta
+              </button>
+              <p className="mt-2 text-xs text-white/35">
+                <Link to="/terminos" className="underline-offset-4 hover:underline">
+                  Términos
+                </Link>
+                {' · '}
+                <Link to="/privacidad" className="underline-offset-4 hover:underline">
+                  Privacidad
+                </Link>
+              </p>
+            </div>
           </div>
         </>
       )}
+
+      {confirmando && <BorrarCuentaModal onClose={() => setConfirmando(false)} />}
     </div>
+  );
+}
+
+/**
+ * Confirmación de borrado. Pide escribir la palabra en vez de un "¿estás seguro?":
+ * la acción no se puede deshacer y un botón de sí a un clic se aprieta sin leer.
+ */
+function BorrarCuentaModal({ onClose }: { onClose: () => void }) {
+  const [texto, setTexto] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: () => api.deleteAccount(),
+    // clearSession vacía el almacenamiento y avisa a toda la app: la pantalla
+    // vuelve sola al estado de visitante
+    onSuccess: () => clearSession(),
+    onError: (e) =>
+      setError(
+        e instanceof RequestError ? e.message : 'No pudimos borrar la cuenta. Reintentá en un rato.',
+      ),
+  });
+
+  return (
+    <Modal title="Borrar mi cuenta" onClose={onClose}>
+      <form
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setError(null);
+          mutation.mutate();
+        }}
+      >
+        <p className="text-sm text-white/80">
+          Se borran tu nombre, tu email y tu contraseña de la base.{' '}
+          <strong className="text-white">No se puede deshacer</strong> y vas a perder el acceso a
+          las fichas de los circuitos.
+        </p>
+        <Field
+          label="Escribí BORRAR para confirmar"
+          id="borrar-confirmacion"
+          required
+          autoComplete="off"
+          value={texto}
+          onChange={(ev) => setTexto(ev.target.value)}
+          error={error ?? undefined}
+        />
+        <Button
+          type="submit"
+          variante="danger"
+          tamano="lg"
+          ancho
+          disabled={texto.trim().toUpperCase() !== 'BORRAR' || mutation.isPending}
+        >
+          {mutation.isPending ? 'Borrando…' : 'Borrar mi cuenta para siempre'}
+        </Button>
+        <Button type="button" variante="secondary" tamano="lg" ancho onClick={onClose}>
+          Cancelar
+        </Button>
+      </form>
+    </Modal>
   );
 }
