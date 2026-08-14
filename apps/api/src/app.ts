@@ -33,9 +33,21 @@ declare module '@fastify/jwt' {
 
 export async function buildApp(config: Config, db: Db): Promise<FastifyInstance> {
   const app = Fastify({
+    /*
+     * En producción la API vive detrás del proxy de Render, así que la dirección
+     * del socket es siempre la misma: la del proxy. Sin esto, `request.ip` es esa
+     * dirección para todo el mundo y el límite de pedidos deja de ser por visitante
+     * y pasa a ser un único cubo compartido por todo el planeta: alguien tira cien
+     * pedidos y el resto come 429, y la fuerza bruta desde mil direcciones cuenta
+     * como si viniera de una sola. Con esto se lee `x-forwarded-for`.
+     */
+    trustProxy: true,
     logger: {
       level: config.NODE_ENV === 'test' ? 'warn' : 'info',
-      redact: ['req.headers.authorization', 'password'],
+      // los comodines alcanzan a `req.body.password` y a cualquier anidado: una
+      // ruta suelta como 'password' solo tapa la raíz del objeto de log, que es
+      // justo donde nunca está
+      redact: ['req.headers.authorization', 'req.headers.cookie', '*.password', '*.passwordHash'],
     },
   });
 
@@ -54,7 +66,10 @@ export async function buildApp(config: Config, db: Db): Promise<FastifyInstance>
     maxAge: 86_400,
   });
   await app.register(jwt, { secret: config.JWT_SECRET });
-  await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
+  // 300 y no 100: abrir el mapa ya dispara varios pedidos, y con `trustProxy`
+  // el límite recién ahora es por visitante. Las puertas de entrada tienen su
+  // propio límite, mucho más estricto, en el módulo de auth.
+  await app.register(rateLimit, { max: 300, timeWindow: '1 minute' });
   await app.register(multipart, {
     attachFieldsToBody: 'keyValues',
     limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 20 },
