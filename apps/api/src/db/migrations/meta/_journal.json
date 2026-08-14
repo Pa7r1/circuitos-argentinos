@@ -29,6 +29,13 @@
       "when": 1785112281389,
       "tag": "0003_enlace_mapa",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786717755692,
+      "tag": "0004_recuperar_password",
+      "breakpoints": true
     }
   ]
 }

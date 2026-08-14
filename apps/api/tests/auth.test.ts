@@ -29,6 +29,11 @@ beforeAll(async () => {
     ADMIN_USER: 'admin',
     ADMIN_PASSWORD_HASH: bcrypt.hashSync(ADMIN_PASSWORD, 4),
     JWT_SECRET: 'secreto-de-test-suficientemente-largo-1234',
+    EMAIL_FROM: 'Circuitos <no-responder@ejemplo.com>',
+    APP_URL: 'http://localhost:5173',
+    // con clave, el correo sale por fetch y el test lo puede interceptar; sin
+    // ella el token solo quedaría escrito en el log
+    RESEND_API_KEY: 'clave-de-test',
   };
 
   const created = createDb(testUrl);
@@ -316,5 +321,136 @@ describe('descarga del GPX', () => {
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-disposition']).toContain('quebrada-del-condor.gpx');
     expect(res.body).toContain('<gpx');
+  });
+});
+
+/*
+ * El token en claro solo existe dentro del correo, así que se lo intercepta ahí:
+ * se configura una clave de Resend y se reemplaza `fetch` para quedarse con el
+ * cuerpo. De paso queda probado que el enlace que viaja es el correcto.
+ */
+describe('recuperar la contraseña', () => {
+  const EMAIL = 'olvidadiza@ejemplo.com';
+  const PASSWORD_NUEVA = 'mi-clave-nueva-2';
+  let correos: { to: string; text: string }[] = [];
+  const fetchReal = globalThis.fetch;
+
+  beforeAll(async () => {
+    globalThis.fetch = (async (_url: string, init?: { body?: string }) => {
+      correos.push(JSON.parse(init?.body ?? '{}') as { to: string; text: string });
+      return new Response(null, { status: 200 });
+    }) as typeof fetch;
+
+    // la cuenta se crea por SQL y no por /register: las puertas de entrada están
+    // limitadas a 8 por minuto con un contador que comparte toda la suite, y un
+    // registro de más hace fallar a un test que no tiene nada que ver
+    await client.unsafe(
+      `INSERT INTO users (name, email, password_hash) VALUES ('Olvidadiza', '${EMAIL}', '${bcrypt.hashSync(USER_PASSWORD, 4)}')`,
+    );
+  });
+
+  afterAll(() => {
+    globalThis.fetch = fetchReal;
+  });
+
+  /** Contraseña vigente, leída del hash: no gasta cuota de /login. */
+  const claveVigente = async (password: string) => {
+    const filas = (await client.unsafe(
+      `SELECT password_hash FROM users WHERE email = '${EMAIL}'`,
+    )) as unknown as { password_hash: string }[];
+    return bcrypt.compareSync(password, filas[0]!.password_hash);
+  };
+
+  const pedirEnlace = async (email: string) => {
+    correos = [];
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/forgot-password',
+      payload: { email },
+    });
+    return res;
+  };
+
+  const tokenDelCorreo = () => {
+    const enlace = /token=([\w-]+)/.exec(correos[0]?.text ?? '');
+    return enlace?.[1] ?? '';
+  };
+
+  const restablecer = (token: string, password: string) =>
+    app.inject({ method: 'POST', url: '/api/v1/auth/reset-password', payload: { token, password } });
+
+
+  it('responde igual con un email registrado y con uno que no existe', async () => {
+    const existente = await pedirEnlace(EMAIL);
+    const inventado = await pedirEnlace('fantasma@ejemplo.com');
+    expect(existente.statusCode).toBe(204);
+    expect(inventado.statusCode).toBe(204);
+    expect(existente.body).toBe(inventado.body);
+    // y al inexistente no se le manda nada
+    expect(correos).toHaveLength(0);
+  });
+
+  it('cambia la contraseña con el enlace del correo y el token queda consumido', async () => {
+    await pedirEnlace(EMAIL);
+    expect(correos[0]?.to).toBe(EMAIL);
+    const token = tokenDelCorreo();
+    expect(token.length).toBeGreaterThan(20);
+
+    expect((await restablecer(token, PASSWORD_NUEVA)).statusCode).toBe(204);
+
+    // la vieja ya no sirve y la nueva sí
+    expect(await claveVigente(USER_PASSWORD)).toBe(false);
+    expect(await claveVigente(PASSWORD_NUEVA)).toBe(true);
+
+    // el mismo enlace no se puede usar de nuevo
+    expect((await restablecer(token, 'otra-clave-mas-3')).statusCode).toBe(400);
+  });
+
+  it('rechaza un token inventado y uno vencido', async () => {
+    expect((await restablecer('token-que-nunca-existio', PASSWORD_NUEVA)).statusCode).toBe(400);
+
+    await pedirEnlace(EMAIL);
+    const token = tokenDelCorreo();
+    await client.unsafe(`UPDATE users SET reset_expires_at = now() - interval '1 minute'
+                         WHERE email = '${EMAIL}'`);
+    expect((await restablecer(token, 'clave-vencida-9')).statusCode).toBe(400);
+  });
+
+  it('pedir un enlace nuevo invalida el anterior', async () => {
+    await pedirEnlace(EMAIL);
+    const viejo = tokenDelCorreo();
+    await pedirEnlace(EMAIL);
+    const nuevo = tokenDelCorreo();
+    expect(nuevo).not.toBe(viejo);
+    expect((await restablecer(viejo, 'clave-del-viejo-1')).statusCode).toBe(400);
+    expect((await restablecer(nuevo, 'clave-del-nuevo-1')).statusCode).toBe(204);
+  });
+});
+
+describe('borrar la cuenta', () => {
+  it('la borra y su token deja de servir', async () => {
+    const email = 'chau@ejemplo.com';
+    // por SQL y con el token firmado a mano, para no gastar la cuota compartida
+    // de /register (8 por minuto para toda la suite)
+    const filas = (await client.unsafe(
+      `INSERT INTO users (name, email, password_hash) VALUES ('Chau', '${email}', '${bcrypt.hashSync(USER_PASSWORD, 4)}') RETURNING id`,
+    )) as unknown as { id: string }[];
+    const token = app.jwt.sign({ sub: filas[0]!.id, role: 'user', name: 'Chau' });
+    const cabeceras = { authorization: `Bearer ${token}` };
+
+    expect((await app.inject({ method: 'GET', url: '/api/v1/auth/me', headers: cabeceras })).statusCode).toBe(200);
+
+    const borrado = await app.inject({ method: 'DELETE', url: '/api/v1/auth/me', headers: cabeceras });
+    expect(borrado.statusCode).toBe(204);
+
+    // el JWT sigue bien firmado, pero la cuenta ya no está
+    const despues = await app.inject({ method: 'GET', url: '/api/v1/auth/me', headers: cabeceras });
+    expect(despues.statusCode).toBe(401);
+
+    expect(await client.unsafe(`SELECT id FROM users WHERE email = '${email}'`)).toHaveLength(0);
+  });
+
+  it('sin sesión no borra nada', async () => {
+    expect((await app.inject({ method: 'DELETE', url: '/api/v1/auth/me' })).statusCode).toBe(401);
   });
 });

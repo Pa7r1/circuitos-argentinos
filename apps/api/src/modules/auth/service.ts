@@ -1,11 +1,19 @@
+import { createHash, randomBytes } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import type { AuthUser, RegisterRequest } from '@circuitos/shared';
 import type { Config } from '../../config.js';
-import { DomainError, unauthorized } from '../../lib/errors.js';
+import { DomainError, badRequest, unauthorized } from '../../lib/errors.js';
 import type { AuthRepository } from './repository.js';
 
 /** Hash de descarte: iguala el tiempo de respuesta cuando el email no existe. */
 const HASH_FANTASMA = '$2b$12$' + 'x'.repeat(53);
+
+/**
+ * SHA-256 y no bcrypt: el token ya son 32 bytes al azar, así que no hay nada que
+ * adivinar por fuerza bruta y el hash solo tiene que evitar que sirva leído de la
+ * base. Bcrypt acá sería lento sin comprar nada.
+ */
+const hashDeToken = (token: string) => createHash('sha256').update(token).digest('hex');
 
 /** Valida las credenciales del admin único contra las variables de entorno. */
 export async function verifyAdminCredentials(
@@ -65,6 +73,35 @@ export function authService(repo: AuthRepository) {
       const ok = await bcrypt.compare(password, user?.passwordHash ?? HASH_FANTASMA);
       if (!user || !ok) throw unauthorized('Email o contraseña incorrectos');
       return perfil(user);
+    },
+
+    /**
+     * Arranca la recuperación. Devuelve el token en claro para que la ruta lo
+     * mande por correo, o null si no hay cuenta con ese email: quien llama
+     * responde lo mismo en los dos casos, si no el endpoint sería un oráculo
+     * para averiguar quién está registrado.
+     */
+    async startPasswordReset(email: string): Promise<{ token: string; name: string } | null> {
+      const user = await repo.findByEmail(normalizeEmail(email));
+      if (!user) return null;
+
+      const token = randomBytes(32).toString('base64url');
+      await repo.setResetToken(user.id, hashDeToken(token));
+      return { token, name: user.name };
+    },
+
+    /** Consume el token y deja la contraseña nueva. */
+    async finishPasswordReset(token: string, password: string): Promise<void> {
+      const user = await repo.findByResetTokenHash(hashDeToken(token));
+      if (!user) {
+        throw badRequest('TOKEN_INVALIDO', 'El enlace no sirve o venció. Pedí uno nuevo.');
+      }
+      await repo.updatePassword(user.id, await bcrypt.hash(password, 12));
+    },
+
+    /** Borra la cuenta. Los circuitos que haya cargado no se tocan: created_by no tiene FK. */
+    async deleteAccount(id: string): Promise<void> {
+      await repo.deleteById(id);
     },
 
     async profile(id: string): Promise<AuthUser> {

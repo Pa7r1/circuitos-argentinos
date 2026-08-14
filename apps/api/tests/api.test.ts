@@ -55,6 +55,8 @@ beforeAll(async () => {
     ADMIN_USER: 'admin',
     ADMIN_PASSWORD_HASH: bcrypt.hashSync(ADMIN_PASSWORD, 4),
     JWT_SECRET: 'secreto-de-test-suficientemente-largo-1234',
+    EMAIL_FROM: 'Circuitos <no-responder@ejemplo.com>',
+    APP_URL: 'http://localhost:5173',
   };
 
   const created = createDb(testUrl);

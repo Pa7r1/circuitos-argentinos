@@ -56,6 +56,17 @@ export const users = pgTable(
     role: text('role').notNull().default('user'),
     oauthProvider: text('oauth_provider'),
     oauthSubject: text('oauth_subject'),
+    /*
+     * Recuperación de contraseña. Se guarda el SHA-256 del token, nunca el token:
+     * quien lea la base no puede usarlo para entrar a una cuenta ajena. Van como
+     * columnas y no como tabla aparte porque hay a lo sumo un pedido vivo por
+     * persona, así que una tabla sería una fila por usuario y un trabajo de
+     * limpieza que nadie necesita.
+     */
+    resetTokenHash: text('reset_token_hash'),
+    resetExpiresAt: timestamp('reset_expires_at', { withTimezone: true }),
+    /** Cuándo aceptó los términos. Null en las cuentas anteriores a que existieran. */
+    termsAcceptedAt: timestamp('terms_accepted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

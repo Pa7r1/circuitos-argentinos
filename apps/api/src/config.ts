@@ -19,6 +19,17 @@ const envSchema = z.object({
   ADMIN_USER: z.string().min(1),
   ADMIN_PASSWORD_HASH: z.string().startsWith('$2', 'debe ser un hash bcrypt'),
   JWT_SECRET: z.string().min(32, 'mínimo 32 caracteres'),
+
+  /*
+   * Correo saliente (hoy solo para recuperar la contraseña). Es opcional a
+   * propósito: sin la clave, el enlace se escribe en el log en vez de enviarse,
+   * y así el flujo se puede probar entero en desarrollo sin dar de alta ninguna
+   * cuenta de correo. En producción tiene que estar.
+   */
+  RESEND_API_KEY: z.string().min(1).optional(),
+  EMAIL_FROM: z.string().default('Circuitos Argentinos <no-responder@makkem.com>'),
+  /** Base para armar el enlace del correo. Es el sitio, no la API. */
+  APP_URL: z.string().url().default('http://localhost:5173'),
 });
 
 export type Config = z.infer<typeof envSchema>;
