@@ -66,6 +66,12 @@ describe('loadConfig · variables opcionales en blanco', () => {
     expect(() => loadConfig({ ...CON_CORS, APP_URL: 'no-es-una-url' })).toThrow(/APP_URL/);
   });
 
+  it('PORT y NODE_ENV en blanco también caen a su valor por defecto', () => {
+    const config = loadConfig({ ...CON_CORS, PORT: '', NODE_ENV: '' });
+    expect(config.PORT).toBe(3000);
+    expect(config.NODE_ENV).toBe('development');
+  });
+
   it('una variable obligatoria en blanco SÍ tiene que impedir el arranque', () => {
     expect(() => loadConfig({ ...CON_CORS, JWT_SECRET: '' })).toThrow(/JWT_SECRET/);
   });

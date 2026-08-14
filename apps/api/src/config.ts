@@ -17,9 +17,13 @@ const vacioEsIndefinido = (valor: unknown) =>
   typeof valor === 'string' && valor.trim() === '' ? undefined : valor;
 
 const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  NODE_ENV: z.preprocess(
+    vacioEsIndefinido,
+    z.enum(['development', 'test', 'production']).default('development'),
+  ),
   DATABASE_URL: z.string().startsWith('postgres'),
-  PORT: z.coerce.number().int().positive().default(3000),
+  // sin el preprocess, PORT='' se convierte en 0 y `positive()` mata el arranque
+  PORT: z.preprocess(vacioEsIndefinido, z.coerce.number().int().positive().default(3000)),
   // varios orígenes separados por coma (ej: dominio propio + subdominio de respaldo).
   // Se recortan los espacios: un origen con espacio adelante no coincide con
   // ninguno real y el navegador lo rechaza sin dejar rastro en el servidor.
