@@ -68,10 +68,22 @@ export function circuitsRepository(db: Db) {
       }));
     },
 
-    /** Foto guardada en la base. La URL es la clave: es única por circuito. */
+    /**
+     * Foto guardada en la base. La URL es la clave: es única por circuito.
+     *
+     * Se excluyen los circuitos archivados y no los borradores. Archivar es
+     * retirar algo que estuvo público, así que su URL puede haber quedado en un
+     * caché o en un historial y seguía sirviéndose para siempre. Los borradores,
+     * en cambio, tienen que verse: el panel muestra las fotos con un `<img src>`
+     * plano, que no manda el token, y filtrarlos dejaría cada circuito sin
+     * imágenes justo mientras se decide si publicarlo.
+     */
     async mediaByUrl(url: string): Promise<{ data: Buffer; contentType: string } | null> {
       const rows = (await db.execute(sql`
-        SELECT data, content_type FROM circuit_media WHERE url = ${url}
+        SELECT m.data, m.content_type
+        FROM circuit_media m
+        JOIN circuits c ON c.id = m.circuit_id
+        WHERE m.url = ${url} AND c.status <> 'archived'
       `)) as unknown as { data: Buffer; content_type: string }[];
       const row = rows[0];
       return row ? { data: row.data, contentType: row.content_type } : null;
