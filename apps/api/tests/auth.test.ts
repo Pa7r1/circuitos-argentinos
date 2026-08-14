@@ -63,14 +63,16 @@ describe('registro de usuarios', () => {
     expect(body.user).not.toHaveProperty('passwordHash');
   });
 
-  it('rechaza un email ya registrado con 409', async () => {
+  it('rechaza un email ya registrado sin confirmar que existe', async () => {
     const res = await register({
       name: 'Otro',
       email: 'valentin@ejemplo.com',
       password: USER_PASSWORD,
     });
     expect(res.statusCode).toBe(409);
-    expect(res.json<{ code: string }>().code).toBe('EMAIL_EN_USO');
+    // el mensaje no puede nombrar la causa: sería un oráculo de qué emails hay
+    expect(res.json<{ code: string; message: string }>().code).toBe('REGISTRO_RECHAZADO');
+    expect(res.json<{ message: string }>().message).not.toMatch(/email|correo/i);
   });
 
   it('rechaza contraseñas cortas y emails inválidos', async () => {

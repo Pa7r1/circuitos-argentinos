@@ -37,7 +37,18 @@ export function authService(repo: AuthRepository) {
     async register(input: RegisterRequest): Promise<AuthUser> {
       const email = normalizeEmail(input.email);
       if (await repo.findByEmail(email)) {
-        throw new DomainError(409, 'EMAIL_EN_USO', 'Ya existe una cuenta con ese email');
+        /*
+         * El mensaje no nombra la causa a propósito. "Ya existe una cuenta con
+         * ese email" convierte al registro en un oráculo: con una lista de
+         * direcciones filtrada de otro sitio se arma el padrón de quién usa la
+         * app. El login ya se cuida de eso (mensaje genérico y hash fantasma
+         * para igualar los tiempos) y el registro lo tiraba abajo.
+         */
+        throw new DomainError(
+          409,
+          'REGISTRO_RECHAZADO',
+          'No pudimos crear la cuenta con esos datos. Si ya tenés una, ingresá.',
+        );
       }
       const user = await repo.create({
         name: input.name.trim(),
