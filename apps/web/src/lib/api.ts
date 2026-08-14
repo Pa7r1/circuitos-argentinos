@@ -95,6 +95,19 @@ export const api = {
     return request('/auth/me', { headers: authHeaders() });
   },
 
+  /** Pide el correo con el enlace. Responde igual exista o no la cuenta. */
+  forgotPassword(email: string): Promise<void> {
+    return post('/auth/forgot-password', { email });
+  },
+
+  resetPassword(token: string, password: string): Promise<void> {
+    return post('/auth/reset-password', { token, password });
+  },
+
+  deleteAccount(): Promise<void> {
+    return request('/auth/me', { method: 'DELETE', headers: authHeaders() });
+  },
+
   /** Descarga el GPX original (requiere sesión) y lo entrega como blob. */
   async downloadGpx(slug: string): Promise<Blob> {
     const res = await fetch(`${API_URL}/api/v1/circuits/${encodeURIComponent(slug)}/gpx`, {
