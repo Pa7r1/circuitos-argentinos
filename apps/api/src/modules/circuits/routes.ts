@@ -28,17 +28,19 @@ export function circuitsRoutes(service: CircuitsService) {
     });
 
     // la ficha completa exige sesión: el registro es el peaje para acceder al detalle,
-    // y se controla acá porque hacerlo solo en el frontend sería decorativo
+    // y se controla acá porque hacerlo solo en el frontend sería decorativo. El guard
+    // va en `onRequest`, antes de leer el cuerpo, igual que en el panel: no hay motivo
+    // para que un pedido sin credenciales llegue más lejos
     typed.get(
       '/circuits/:slug',
-      { preHandler: app.requireUser, schema: { params: slugParams } },
+      { onRequest: app.requireUser, schema: { params: slugParams } },
       async (request) => service.detail(request.params.slug),
     );
 
     // descarga del GPX original para Strava, Relive o el GPS
     typed.get(
       '/circuits/:slug/gpx',
-      { preHandler: app.requireUser, schema: { params: slugParams } },
+      { onRequest: app.requireUser, schema: { params: slugParams } },
       async (request, reply) => {
         const { fileName, content } = await service.gpx(request.params.slug);
         return reply

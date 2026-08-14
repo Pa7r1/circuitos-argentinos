@@ -54,7 +54,7 @@ export function authRoutes(config: Config, service: AuthService) {
 
     typed.get(
       '/me',
-      { preHandler: app.requireUser },
+      { onRequest: app.requireUser },
       async (request): Promise<AuthUser> => {
         const { sub, role, name } = request.user;
         // el admin por env no tiene fila en users

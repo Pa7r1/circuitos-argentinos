@@ -118,8 +118,16 @@ function parseSchedulesField(fields: Record<string, unknown>): void {
 
 export function adminRoutes(service: AdminService) {
   return async function routes(app: FastifyInstance): Promise<void> {
-    // todas las rutas de este scope exigen JWT de admin
-    app.addHook('preHandler', app.requireAdmin);
+    /*
+     * Todas las rutas de este scope exigen JWT de admin.
+     *
+     * Va en `onRequest` y no en `preHandler`: `preHandler` corre DESPUÉS de que
+     * Fastify leyó el cuerpo, así que un anónimo podía hacernos bufferizar los
+     * 5 MB de un multipart en memoria y recién entonces recibir el 401. Contra
+     * el contenedor de 512 MB del plan gratuito eso es tirar la API sin tener
+     * credenciales. Para verificar el token alcanzan las cabeceras.
+     */
+    app.addHook('onRequest', app.requireAdmin);
 
     // auditoría: toda acción admin deja rastro estructurado
     app.addHook('onResponse', (request, reply, done) => {
