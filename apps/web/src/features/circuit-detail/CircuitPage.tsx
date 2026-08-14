@@ -267,6 +267,25 @@ export function CircuitPage() {
     }
   };
 
+  /*
+   * En el teléfono abre la hoja nativa de compartir; en escritorio, donde
+   * `navigator.share` no existe, copia el enlace. Las dos son API del navegador:
+   * no hace falta ninguna librería ni botones por red social.
+   */
+  const compartir = async () => {
+    const url = window.location.href;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: circuit.name, text: `Mirá este circuito: ${circuit.name}`, url });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      toast('Enlace copiado.');
+    } catch {
+      // cancelar la hoja de compartir también entra acá: no es un error que mostrar
+    }
+  };
+
   return (
     /*
       pb-28 en teléfono deja lugar para la barra de acciones fija; sin eso, el
@@ -450,6 +469,7 @@ export function CircuitPage() {
                 directionsUrl={directionsUrl}
                 hasGpx={circuit.hasGpx}
                 onDescargar={descargarGpx}
+                onCompartir={compartir}
               />
             </div>
           </div>
@@ -466,6 +486,7 @@ export function CircuitPage() {
           directionsUrl={directionsUrl}
           hasGpx={circuit.hasGpx}
           onDescargar={descargarGpx}
+          onCompartir={compartir}
           oscuro
         />
       </div>
@@ -505,11 +526,13 @@ function Acciones({
   directionsUrl,
   hasGpx,
   onDescargar,
+  onCompartir,
   oscuro = false,
 }: {
   directionsUrl: string;
   hasGpx: boolean;
   onDescargar: () => void;
+  onCompartir: () => void;
   oscuro?: boolean;
 }) {
   return (
@@ -517,6 +540,16 @@ function Acciones({
       <ButtonLink to={directionsUrl} variante="primary" tamano="lg" ancho>
         Cómo llegar
       </ButtonLink>
+      <Button
+        variante={oscuro ? 'ghost' : 'secondary'}
+        tamano="lg"
+        onClick={onCompartir}
+        className={oscuro ? 'shrink-0 text-white hover:bg-white/15' : 'shrink-0'}
+        title="Compartir este circuito"
+        aria-label="Compartir este circuito"
+      >
+        Compartir
+      </Button>
       {/* sin archivo no se ofrece la descarga: sería un botón que da error */}
       {hasGpx && (
         <Button

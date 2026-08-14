@@ -9,6 +9,30 @@
       content="Descubrí circuitos off-road de enduro, motocross y MTB en Argentina"
     />
     <!--
+      Tarjeta para cuando alguien comparte el enlace por WhatsApp, Instagram o
+      Telegram. Sin esto la vista previa sale vacía, y el crecimiento de este sitio
+      es justamente "che, mirá este circuito".
+
+      Es estática para todo el sitio: una tarjeta por circuito exigiría renderizar
+      el HTML en el servidor, y hoy la web es un Worker de assets. La URL absoluta
+      de og:image no es opcional, las redes no resuelven rutas relativas.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Circuitos Argentinos" />
+    <meta property="og:locale" content="es_AR" />
+    <meta property="og:title" content="Circuitos Argentinos" />
+    <meta
+      property="og:description"
+      content="Mapa de circuitos off-road de enduro, motocross y MTB en Argentina. Mirá dónde andar cerca tuyo."
+    />
+    <meta property="og:url" content="https://circuitos-argentinos.makkem.com/" />
+    <meta property="og:image" content="https://circuitos-argentinos.makkem.com/og.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Mapa satelital con circuitos off-road de Argentina" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!--
       La fuente se descubre recién cuando el CSS ya se descargó y se parseó. Con el
       preload arranca junto con el resto y el texto no cambia de forma a mitad de la
       carga. Se puede porque la servimos desde public/ con una URL fija.
