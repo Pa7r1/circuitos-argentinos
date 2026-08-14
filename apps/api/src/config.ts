@@ -1,5 +1,21 @@
 import { z } from 'zod';
 
+/**
+ * Una variable definida pero vacía vale lo mismo que no definida.
+ *
+ * Los paneles guardan `''` cuando dejás el campo en blanco (y `VAR=` en un .env
+ * hace lo mismo), y con la cadena vacía ni `.optional()` ni `.default()` entran:
+ * el valor existe, así que se valida, falla, y **el proceso no arranca**. Pasó de
+ * verdad en Render con `RESEND_API_KEY` en blanco: la API quedó sin desplegar con
+ * un `Too small: expected string to have >=1 characters` que no dice nada de esto.
+ *
+ * Solo se aplica a lo opcional. Si falta una obligatoria —la base, el secreto del
+ * token, la credencial del admin— que el arranque falle es exactamente lo que se
+ * quiere.
+ */
+const vacioEsIndefinido = (valor: unknown) =>
+  typeof valor === 'string' && valor.trim() === '' ? undefined : valor;
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   DATABASE_URL: z.string().startsWith('postgres'),
@@ -26,10 +42,13 @@ const envSchema = z.object({
    * y así el flujo se puede probar entero en desarrollo sin dar de alta ninguna
    * cuenta de correo. En producción tiene que estar.
    */
-  RESEND_API_KEY: z.string().min(1).optional(),
-  EMAIL_FROM: z.string().default('Circuitos Argentinos <no-responder@makkem.com>'),
+  RESEND_API_KEY: z.preprocess(vacioEsIndefinido, z.string().min(1).optional()),
+  EMAIL_FROM: z.preprocess(
+    vacioEsIndefinido,
+    z.string().default('Circuitos Argentinos <no-responder@makkem.com>'),
+  ),
   /** Base para armar el enlace del correo. Es el sitio, no la API. */
-  APP_URL: z.string().url().default('http://localhost:5173'),
+  APP_URL: z.preprocess(vacioEsIndefinido, z.string().url().default('http://localhost:5173')),
 });
 
 export type Config = z.infer<typeof envSchema>;

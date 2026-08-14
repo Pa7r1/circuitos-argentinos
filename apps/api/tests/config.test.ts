@@ -32,3 +32,41 @@ describe('loadConfig · CORS_ORIGIN', () => {
     expect(() => loadConfig(BASE)).toThrow(/CORS_ORIGIN/);
   });
 });
+
+/*
+ * El caso que tiró la API en producción: en el panel de Render se dejó
+ * `RESEND_API_KEY` en blanco, el panel guardó una cadena vacía, y como la
+ * variable existía se validó y falló. El despliegue quedó sin arrancar con un
+ * "Too small" que no explicaba nada. Dejar un campo en blanco tiene que valer lo
+ * mismo que no ponerlo.
+ */
+describe('loadConfig · variables opcionales en blanco', () => {
+  const CON_CORS = { ...BASE, CORS_ORIGIN: 'https://a.com' };
+
+  it('una clave de correo vacía no impide arrancar', () => {
+    const config = loadConfig({ ...CON_CORS, RESEND_API_KEY: '' });
+    expect(config.RESEND_API_KEY).toBeUndefined();
+  });
+
+  it('lo mismo si es solo espacios', () => {
+    expect(loadConfig({ ...CON_CORS, RESEND_API_KEY: '   ' }).RESEND_API_KEY).toBeUndefined();
+  });
+
+  it('con valor real, se conserva', () => {
+    expect(loadConfig({ ...CON_CORS, RESEND_API_KEY: 're_abc123' }).RESEND_API_KEY).toBe('re_abc123');
+  });
+
+  it('EMAIL_FROM y APP_URL vacías caen a su valor por defecto', () => {
+    const config = loadConfig({ ...CON_CORS, EMAIL_FROM: '', APP_URL: '' });
+    expect(config.EMAIL_FROM).toContain('no-responder@');
+    expect(config.APP_URL).toBe('http://localhost:5173');
+  });
+
+  it('APP_URL con un valor que no es una dirección sigue fallando', () => {
+    expect(() => loadConfig({ ...CON_CORS, APP_URL: 'no-es-una-url' })).toThrow(/APP_URL/);
+  });
+
+  it('una variable obligatoria en blanco SÍ tiene que impedir el arranque', () => {
+    expect(() => loadConfig({ ...CON_CORS, JWT_SECRET: '' })).toThrow(/JWT_SECRET/);
+  });
+});
