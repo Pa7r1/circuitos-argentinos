@@ -72,7 +72,7 @@ export function MapPage() {
   // ponytail: una sola consulta con todos los publicados (tope 200 del server) y
   // el filtrado en memoria. Cuando haya más circuitos que ese tope, pasar a
   // consultar por el bbox del viewport (el ST_DWithin de la API ya está listo).
-  const { data: allCircuits, isPending, isError } = useCircuits({});
+  const { data: allCircuits, isPending, isError, refetch } = useCircuits({});
   const despertando = useSlowRequest(isPending);
 
   const origin = place?.lonLat ?? myPosition;
@@ -354,8 +354,35 @@ export function MapPage() {
         </p>
       )}
 
+      {/*
+        Los dos casos que antes dejaban un mapa mudo: la API no responde, o todavía
+        no hay nada cargado. El toast de error se iba a los cuatro segundos y quien
+        llegaba después quedaba mirando un mapa vacío sin saber si buscó mal o si el
+        sitio está roto.
+      */}
+      {isError && (
+        <div className="hoja flotante absolute bottom-24 left-1/2 z-[500] w-[90%] max-w-sm -translate-x-1/2 rounded-2xl p-4 text-center">
+          <p className="mb-1 text-sm font-semibold text-white">No pudimos traer los circuitos</p>
+          <p className="mb-3 text-sm text-white/70">
+            Puede ser tu conexión, o que el servidor se esté despertando.
+          </p>
+          <Button variante="primary" ancho onClick={() => refetch()}>
+            Reintentar
+          </Button>
+        </div>
+      )}
+
+      {!isPending && !isError && (allCircuits?.length ?? 0) === 0 && (
+        <div className="hoja flotante absolute bottom-24 left-1/2 z-[500] w-[90%] max-w-sm -translate-x-1/2 rounded-2xl p-4 text-center">
+          <p className="mb-1 text-sm font-semibold text-white">Todavía no hay circuitos</p>
+          <p className="text-sm text-white/70">
+            Estamos cargando los primeros. Volvé en unos días y va a haber dónde andar.
+          </p>
+        </div>
+      )}
+
       {/* sin resultados dentro del radio buscado */}
-      {place && !isPending && circuits.length === 0 && (
+      {place && !isPending && !isError && circuits.length === 0 && (
         <div className="hoja flotante absolute bottom-24 left-1/2 z-[500] w-[90%] max-w-sm -translate-x-1/2 rounded-2xl p-4 text-center">
           <p className="mb-3 text-sm text-white/80">
             No hay circuitos a menos de {Math.round(radiusM / 1000)} km de{' '}

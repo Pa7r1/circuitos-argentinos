@@ -266,9 +266,12 @@ h2 {
  * Modal. El fondo se funde y el panel sube desde abajo en el teléfono, donde el
  * modal es una hoja, y aparece en el lugar en pantallas grandes.
  *
- * Solo entrada: React desmonta el nodo apenas cambia el estado, así que una
- * animación de salida necesita retener el elemento montado. Se resuelve en la
- * iteración del sistema de presencia, no acá.
+ * También sale animado: `Modal.tsx` se pone la clase `saliendo` y recién avisa a
+ * quien lo montó cuando termina. Salir de golpe es lo que hacía que la app se
+ * sintiera hecha a mano aunque cada pantalla suelta estuviera bien.
+ *
+ * La salida usa `--ease-entrada`, no `--ease-salida`: son curvas espejadas y
+ * arrancar rápido para frenar al final es lo correcto al entrar, no al irse.
  */
 @keyframes fundir {
   from {
@@ -294,6 +297,41 @@ h2 {
 @media (min-width: 40rem) {
   @keyframes subir-panel {
     from {
+      scale: 0.97;
+      opacity: 0;
+    }
+  }
+}
+
+/*
+ * Salida. `forwards` es lo que evita el parpadeo: sin él, el último fotograma se
+ * descarta y el panel reaparece entero durante el instante que va hasta que React
+ * lo desmonta.
+ */
+@keyframes apagar {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes bajar-panel {
+  to {
+    translate: 0 24px;
+    opacity: 0;
+  }
+}
+
+.fondo-modal.saliendo {
+  animation: apagar var(--duracion-media) var(--ease-entrada) forwards;
+}
+
+.panel-modal.saliendo {
+  animation: bajar-panel var(--duracion-media) var(--ease-entrada) forwards;
+}
+
+@media (min-width: 40rem) {
+  @keyframes bajar-panel {
+    to {
       scale: 0.97;
       opacity: 0;
     }
