@@ -1,0 +1,19 @@
+# Cabeceras del sitio publicado.
+#
+# Vive en public/ porque vite copia esa carpeta tal cual a dist/, y Workers
+# Assets aplica este archivo solo: no hace falta código de servidor ni un
+# Worker con `main`. La API tiene sus propias cabeceras (apps/api/src/app.ts),
+# pero la API no es donde vive el DOM: el clickjacking y el XSS se cierran acá.
+#
+# Al agregar un proveedor de mapas a MAP_PROVIDERS (packages/shared/src/external-map.ts)
+# hay que sumar su dominio a frame-src, o el recorrido embebido queda en blanco
+# sin ningún error visible para quien lo mira.
+#
+# Si algo del mapa deja de verse, mirar la consola antes que el código: una CSP
+# mal calibrada rompe en silencio y solo para el visitante.
+
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://server.arcgisonline.com https://tile.openstreetmap.org https://circuitos-api.onrender.com; connect-src 'self' https://circuitos-api.onrender.com https://apis.datos.gob.ar https://server.arcgisonline.com https://tile.openstreetmap.org; frame-src https://www.relive.com https://strava-embeds.com https://www.wikiloc.com https://www.komoot.com https://www.google.com; form-action 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin

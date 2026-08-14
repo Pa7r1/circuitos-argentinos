@@ -1,7 +1,24 @@
+import { readFileSync } from 'node:fs';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+
+/**
+ * Las cabeceras del sitio publicado viven en `public/_headers`, que solo aplica
+ * Cloudflare. Sin esto no habría forma de probar la CSP antes de desplegar, y
+ * una CSP mal calibrada rompe en silencio y solo para el visitante. Se leen del
+ * mismo archivo a propósito: dos copias se desincronizan y la que se prueba deja
+ * de ser la que se publica.
+ */
+function cabecerasPublicadas(): Record<string, string> {
+  const cabeceras: Record<string, string> = {};
+  for (const linea of readFileSync(new URL('public/_headers', import.meta.url), 'utf8').split('\n')) {
+    const [, nombre, valor] = /^\s{2}([\w-]+):\s*(.+)$/.exec(linea) ?? [];
+    if (nombre && valor) cabeceras[nombre] = valor;
+  }
+  return cabeceras;
+}
 
 export default defineConfig({
   envDir: '../..',
@@ -35,6 +52,7 @@ export default defineConfig({
   // mismo proxy para `vite preview`, así el build también se prueba local
   preview: {
     port: 4173,
+    headers: cabecerasPublicadas(),
     proxy: {
       '/api': 'http://localhost:3000',
       '/media': 'http://localhost:3000',
