@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '../../components/Button';
 import { Field } from '../../components/Field';
 import { Modal } from '../../components/Modal';
+import { PieSitio } from '../../components/PieSitio';
 import { api, RequestError } from '../../lib/api';
 import { clearSession } from '../../lib/session';
 import { useSession } from '../../lib/use-session';
@@ -91,15 +92,9 @@ export function AccountButton({ onPedirCuenta }: { onPedirCuenta: () => void }) 
               >
                 Borrar mi cuenta
               </button>
-              <p className="mt-2 text-xs text-white/35">
-                <Link to="/terminos" className="underline-offset-4 hover:underline">
-                  Términos
-                </Link>
-                {' · '}
-                <Link to="/privacidad" className="underline-offset-4 hover:underline">
-                  Privacidad
-                </Link>
-              </p>
+              {/* el mismo pie que el resto del sitio: los cuatro enlaces en un
+                  solo lugar, sin una segunda copia que se desvíe */}
+              <PieSitio className="mt-2 gap-y-1 text-xs text-white/35" />
             </div>
           </div>
         </>

@@ -14,6 +14,7 @@ import { api, API_URL, RequestError } from '../../lib/api';
 import { Button, ButtonLink } from '../../components/Button';
 import { ExternalMapEmbed } from '../../components/ExternalMapEmbed';
 import { MapLayerToggle } from '../../components/MapLayerToggle';
+import { PieSitio } from '../../components/PieSitio';
 import { TRACK_CASING, TRACK_COLOR, type MapLayer } from '../../lib/map-style';
 import { useCircuitDetail } from '../../lib/queries';
 import { createBaseLayers, MAP_OPTIONS, useLeaflet } from '../../lib/use-leaflet';
@@ -187,6 +188,9 @@ function Peaje({ onEntrar }: { onEntrar: () => void }) {
       >
         ← Volver al mapa
       </Link>
+      {/* acá se le pide a alguien que se registre: los términos que va a aceptar
+          tienen que estar a un toque */}
+      <PieSitio className="mt-6 justify-center text-xs text-white/40" />
     </main>
   );
 }
@@ -490,6 +494,10 @@ export function CircuitPage() {
           oscuro
         />
       </div>
+
+      {/* la barra de acciones es fija abajo: el pie necesita su propio hueco para
+          no quedar debajo */}
+      <PieSitio className="justify-center px-4 pt-8 pb-28 text-xs text-white/40" />
 
       {verTour && (
         <Tour

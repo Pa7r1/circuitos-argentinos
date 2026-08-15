@@ -6,6 +6,7 @@ import { DISCIPLINES } from '@circuitos/shared';
 import { Button, ButtonLink } from '../../components/Button';
 import { DisciplineChip } from '../../components/DisciplineChip';
 import { MapControls } from '../../components/MapControls';
+import { PieSitio } from '../../components/PieSitio';
 import { PIN_ANCHOR, PIN_SIZE, pinSvg, setPinSelected } from '../../components/map-pin';
 import { useToast } from '../../components/Toast';
 import {
@@ -347,6 +348,21 @@ export function MapPage() {
           setVerTour(true);
         }}
       />
+
+      {/*
+        El mapa ocupa la pantalla entera, así que no hay "abajo de todo" donde poner
+        un pie: va en la esquina opuesta a la atribución de Leaflet y en su mismo
+        z-400, para que se lea como cromo del mapa y no como interfaz.
+
+        Va en cápsula `flotante` y no como texto suelto por lo mismo que la
+        atribución: sobre el arenal claro de Chilecito, un texto blanco al 40 % es
+        directamente ilegible. El z-400 explícito convive con el z-600 de la hoja
+        del circuito, que es lo que exige el contexto de apilado del backdrop-blur.
+
+        Va levantado 1,5rem porque en teléfono la atribución ocupa todo el ancho de
+        la última franja, y taparla no es una opción: es la licencia de los tiles.
+      */}
+      <PieSitio className="flotante absolute bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-2 z-[400] max-w-[58%] rounded-lg px-2.5 py-1.5 text-[10px] text-white/70" />
 
       {isPending && (
         <p className="hoja flotante absolute top-1/2 left-1/2 z-[500] max-w-[85%] -translate-x-1/2 rounded-full px-4 py-2.5 text-center text-sm font-medium">
