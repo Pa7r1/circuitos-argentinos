@@ -78,25 +78,74 @@ export interface ExternalMap {
 }
 
 /**
- * Interpreta el enlace de un recorrido. Devuelve null si no es una URL http(s):
- * el enlace lo pega una persona y un `javascript:` en un href es un XSS.
+ * Saca la URL del recorrido de un código de inserción pegado entero.
+ *
+ * El botón "Incorporar" de Relive da un `<iframe>` de embedly y un `<blockquote>`,
+ * y lo natural es pegar eso tal cual. Se toma la primera URL que reconozca un
+ * proveedor y no la primera a secas, porque la primera del snippet es la de
+ * `cdn.embedly.com`, que no es el recorrido.
+ *
+ * Se parte el texto **antes** de cada `http` en vez de buscar direcciones sueltas:
+ * embedly lleva la de Relive metida dentro de la suya como parámetro, así que
+ * buscando coincidencias completas la de adentro nunca aparece.
  */
-export function resolveExternalMap(raw: string): ExternalMap | null {
-  const url = raw.trim();
-  if (url === '') return null;
+function urlDeCodigoPegado(texto: string): string | null {
+  for (const trozo of texto.split(/(?=https?:\/\/)/)) {
+    const encontrada = /^https?:\/\/[^\s"'<>&]+/.exec(trozo)?.[0];
+    if (!encontrada) continue;
+    const parsed = urlHttp(encontrada);
+    if (parsed && MAP_PROVIDERS.some((p) => p.pattern.test(sinEsquema(parsed)))) return encontrada;
+  }
+  return null;
+}
 
+/** La URL parseada, o null si no es http(s). */
+function urlHttp(url: string): URL | null {
   let parsed: URL;
   try {
     parsed = new URL(url);
   } catch {
     return null;
   }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+  return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed : null;
+}
 
-  const sinEsquema = `${parsed.host}${parsed.pathname}${parsed.search}`;
+/** Host + ruta + query, que es contra lo que se comparan los patrones. */
+function sinEsquema(parsed: URL): string {
+  /*
+   * Relive comparte las URLs con el idioma adelante (/es/view/<id>), y ese
+   * segmento hacía que no coincidiera ningún proveedor: el enlace caía en
+   * "desconocido" y la ficha decía que no se podía mostrar. Se saca acá y no en
+   * cada patrón para que valga para todos los proveedores a la vez.
+   *
+   * El `(?=\/)` es lo que evita comerse un identificador de dos letras.
+   */
+  const ruta = parsed.pathname.replace(/^\/[a-z]{2}(?:-[a-z]{2})?(?=\/)/i, '');
+  return `${parsed.host}${ruta}${parsed.search}`;
+}
+
+/**
+ * Interpreta el enlace de un recorrido. Devuelve null si no es una URL http(s):
+ * el enlace lo pega una persona y un `javascript:` en un href es un XSS.
+ */
+export function resolveExternalMap(raw: string): ExternalMap | null {
+  let url = raw.trim();
+  if (url === '') return null;
+
+  // lo pegado es un código de inserción, no una dirección
+  if (url.includes('<')) {
+    const extraida = urlDeCodigoPegado(url);
+    if (!extraida) return null;
+    url = extraida;
+  }
+
+  const parsed = urlHttp(url);
+  if (!parsed) return null;
+
+  const cadena = sinEsquema(parsed);
 
   for (const provider of MAP_PROVIDERS) {
-    const match = sinEsquema.match(provider.pattern);
+    const match = cadena.match(provider.pattern);
     if (!match) continue;
 
     // Google My Maps identifica el mapa con el parámetro mid, no con la ruta

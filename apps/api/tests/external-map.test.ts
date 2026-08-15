@@ -41,6 +41,41 @@ describe('resolveExternalMap', () => {
     });
   });
 
+  it('acepta el idioma que Relive mete en la URL que comparte', () => {
+    // es la URL que sale del botón de compartir de la app; sin esto el enlace caía
+    // en "desconocido" y la ficha decía que no se podía mostrar
+    const map = resolveExternalMap('https://www.relive.com/es/view/vQvykNrjW46');
+    expect(map?.providerName).toBe('Relive');
+    expect(map?.embedUrl).toBe('https://www.relive.com/view/vQvykNrjW46/embed');
+    // el enlace se guarda tal cual vino: es el que se abre en otra pestaña
+    expect(map?.url).toBe('https://www.relive.com/es/view/vQvykNrjW46');
+  });
+
+  it('el idioma se ignora en cualquier proveedor, y no se come rutas de dos letras', () => {
+    expect(resolveExternalMap('https://www.relive.com/fr/view/abc123')?.providerName).toBe('Relive');
+    expect(resolveExternalMap('https://www.komoot.com/es-es/tour/123456')?.embedUrl).toBe(
+      'https://www.komoot.com/tour/123456/embed',
+    );
+    // "maps" no es un idioma: si se recortara, Google My Maps dejaría de reconocerse
+    expect(
+      resolveExternalMap('https://www.google.com/maps/d/viewer?mid=xyz')?.providerId,
+    ).toBe('google-my-maps');
+  });
+
+  it('saca la URL del código de inserción pegado entero', () => {
+    // lo que da el botón "Incorporar" de Relive: la primera URL del snippet es la
+    // de embedly, que no es el recorrido
+    const incorporar = `<div class="embedly-responsive"><iframe class="embedly-embed" src="https://cdn.embedly.com/widgets/media.html?src=https://www.relive.com/view/vQvykNrjW46/widget?r=embed-site&amp;url=https://www.relive.com/view/vQvykNrjW46?r=embed-site" width="1024" height="801"></iframe></div>`;
+    expect(resolveExternalMap(incorporar)?.embedUrl).toBe(
+      'https://www.relive.com/view/vQvykNrjW46/embed',
+    );
+  });
+
+  it('un código pegado sin ningún proveedor conocido no vale como enlace', () => {
+    expect(resolveExternalMap('<iframe src="https://ejemplo.com/mapa"></iframe>')).toBeNull();
+    expect(resolveExternalMap('<blockquote>sin enlaces</blockquote>')).toBeNull();
+  });
+
   it('rechaza lo que no sea http o https', () => {
     // un javascript: en un href es un XSS, y el enlace lo pega una persona
     expect(resolveExternalMap('javascript:alert(1)')).toBeNull();
