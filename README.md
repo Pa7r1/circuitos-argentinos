@@ -45,7 +45,7 @@ Devuelve una URL `https://…trycloudflare.com` que sirve la web y la API juntas
 
 ## Despliegue
 
-- [docs/DESPLIEGUE-GRATIS.md](docs/DESPLIEGUE-GRATIS.md) — publicar sin costo (Cloudflare Pages + Render + Neon).
+- [docs/DESPLIEGUE-GRATIS.md](docs/DESPLIEGUE-GRATIS.md) — publicar sin costo (Worker de Cloudflare + Render + Neon).
 - [docs/DEPLOY.md](docs/DEPLOY.md) — servidor propio con Docker, Caddy y backups.
 
 ## Datos de terceros
