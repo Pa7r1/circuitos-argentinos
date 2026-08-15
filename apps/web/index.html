@@ -30,7 +30,23 @@
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="Mapa satelital con circuitos off-road de Argentina" />
+    <!--
+      Twitter/X y algunos clientes de mensajería no leen og: si encuentran el
+      juego twitter:; con solo la card quedaba una tarjeta a medias.
+    -->
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Circuitos Argentinos" />
+    <meta
+      name="twitter:description"
+      content="Mapa de circuitos off-road de enduro, motocross y MTB en Argentina. Mirá dónde andar cerca tuyo."
+    />
+    <meta name="twitter:image" content="https://circuitos-argentinos.makkem.com/og.jpg" />
+    <meta name="twitter:image:alt" content="Mapa satelital con circuitos off-road de Argentina" />
+
+    <!-- iOS no lee el manifest: el nombre del icono y la barra de estado se declaran acá -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Circuitos" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
     <!--
       La fuente se descubre recién cuando el CSS ya se descargó y se parseó. Con el
@@ -47,8 +63,9 @@
     <!-- los tiles son lo primero que se ve: adelantamos DNS y TLS -->
     <link rel="preconnect" href="https://server.arcgisonline.com" />
     <link rel="dns-prefetch" href="https://tile.openstreetmap.org" />
-    <link rel="icon" href="/icon-192.png" />
-    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="icon" href="/favicon.png" />
+    <!-- iOS ignora el alfa y lo rellena de negro: este lleva su propio fondo -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>Circuitos Argentinos</title>
   </head>
   <body>

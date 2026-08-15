@@ -32,14 +32,24 @@ export default defineConfig({
         short_name: 'Circuitos',
         description: 'Descubrí circuitos off-road de enduro, motocross y MTB en Argentina',
         lang: 'es-AR',
+        // identidad estable de la app instalada: sin esto la deriva de start_url,
+        // y cambiarla haría que el navegador la tome por otra app distinta
+        id: '/',
         start_url: '/',
         display: 'standalone',
         background_color: '#1c1917',
         theme_color: '#0e7490',
         icons: [
-          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
-          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          // el maskable es un archivo aparte y no el mismo de 512: Android recorta
+          // todo lo que sale del 80 % central, y el logo a sangre perdía la banda
+          {
+            src: '/icon-512-maskable.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable',
+          },
         ],
       },
       workbox: {
