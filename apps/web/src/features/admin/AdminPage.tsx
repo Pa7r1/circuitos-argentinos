@@ -158,6 +158,8 @@ function Resumen() {
 export function AdminPage() {
   const session = useSession();
   const [modal, setModal] = useState<{ editing?: AdminCircuitDetail } | null>(null);
+  // si el formulario tiene algo escrito, el modal deja de cerrarse solo
+  const [sucio, setSucio] = useState(false);
   // el confirm() del navegador se ve distinto en cada sistema, no se puede
   // traducir ni estilar, y aparecía en medio de una interfaz cuidada
   const [porArchivar, setPorArchivar] = useState<AdminCircuitListItem | null>(null);
@@ -199,6 +201,7 @@ export function AdminPage() {
 
   async function abrirEdicion(item: AdminCircuitListItem) {
     try {
+      setSucio(false);
       setModal({ editing: await api.admin.detail(item.id) });
     } catch {
       toast('No se pudo cargar el circuito');
@@ -239,7 +242,14 @@ export function AdminPage() {
             />
           </div>
           {/* única acción primaria de la pantalla */}
-          <Button variante="primary" onClick={() => setModal({})} className="shrink-0">
+          <Button
+            variante="primary"
+            onClick={() => {
+              setSucio(false);
+              setModal({});
+            }}
+            className="shrink-0"
+          >
             <span aria-hidden="true">+</span> Nuevo circuito
           </Button>
         </div>
@@ -387,8 +397,14 @@ export function AdminPage() {
             title={modal.editing ? `Editar: ${modal.editing.name}` : 'Nuevo circuito'}
             onClose={() => setModal(null)}
             size="lg"
+            // en cuanto hay algo cargado, un clic al aire deja de tirar el formulario
+            cierreExterno={!sucio}
           >
-            <CircuitForm editing={modal.editing} onDone={() => setModal(null)} />
+            <CircuitForm
+              editing={modal.editing}
+              onSucio={() => setSucio(true)}
+              onDone={() => setModal(null)}
+            />
           </Modal>
         )}
       </main>

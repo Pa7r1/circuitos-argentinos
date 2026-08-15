@@ -11,24 +11,28 @@ import {
 import { LocationPicker } from './LocationPicker';
 import { Button } from '../../components/Button';
 import { Field, SelectField } from '../../components/Field';
+import { Modal } from '../../components/Modal';
 import { useToast } from '../../components/Toast';
 import { api, API_URL, RequestError } from '../../lib/api';
 import { resizeImage } from '../../lib/image';
 import { ACCESS_LABEL, DAY_LABEL, DIFFICULTY_LABEL } from '../../lib/format';
 import { circuitKeys } from '../../lib/queries';
 import { GpxPreview, parseGpxCoordinates } from './GpxPreview';
+import { parsearPlantilla } from './pegar-datos';
 
 interface Props {
   /** si viene, es edición; si no, alta */
   editing?: AdminCircuitDetail;
   onDone: () => void;
+  /** Hay algo cargado: quien monta el formulario deja de cerrarlo por accidente. */
+  onSucio?: () => void;
 }
 
 /** Los textarea no pasan por `Field`, pero comparten su aspecto. */
 const textareaClass =
   'w-full rounded-xl bg-white/8 px-3 py-2.5 text-base text-white ring-1 ring-white/12 transition-[background-color,box-shadow] duration-[var(--duracion-rapida)] focus:bg-white/12 focus:ring-2 focus:ring-brand-400 focus:outline-none placeholder:text-white/40';
 
-export function CircuitForm({ editing, onDone }: Props) {
+export function CircuitForm({ editing, onDone, onSucio = () => {} }: Props) {
   const queryClient = useQueryClient();
   const toast = useToast();
 
@@ -65,17 +69,54 @@ export function CircuitForm({ editing, onDone }: Props) {
   const mapaExterno = resolveExternalMap(externalMapUrl);
   const enlaceInvalido = externalMapUrl.trim() !== '' && mapaExterno === null;
   const metros = Math.round(Number(km.replace(',', '.')) * 1000);
+  const [pegando, setPegando] = useState(false);
   const [photos, setPhotos] = useState<File[]>([]);
   const [dragging, setDragging] = useState(false);
   const [borradas, setBorradas] = useState<string[]>([]);
 
   async function handleGpx(file: File) {
     setGpxFile(file);
+    onSucio();
     try {
       setGpxCoords(parseGpxCoordinates(await file.text()));
     } catch {
       setGpxCoords([]);
     }
+  }
+
+  /** Vuelca en el formulario lo que se entendió del mensaje pegado. */
+  function aplicarPegado(texto: string) {
+    const { campos, ignoradas } = parsearPlantilla(texto);
+    const cuantos = Object.keys(campos).length;
+
+    if (campos.name !== undefined) setName(campos.name);
+    if (campos.description !== undefined) setDescription(campos.description);
+    if (campos.discipline !== undefined) setDiscipline(campos.discipline);
+    if (campos.province !== undefined) setProvince(campos.province);
+    if (campos.locality !== undefined) setLocality(campos.locality);
+    if (campos.difficulty !== undefined) setDifficulty(campos.difficulty);
+    if (campos.accessType !== undefined) setAccessType(campos.accessType);
+    if (campos.accessNotes !== undefined) setAccessNotes(campos.accessNotes);
+    if (campos.km !== undefined) setKm(campos.km);
+    if (campos.desnivel !== undefined) setDesnivel(campos.desnivel);
+    if (campos.externalMapUrl !== undefined) {
+      setExternalMapUrl(campos.externalMapUrl);
+      // si trajo enlace, el camino es por enlace y no por archivo
+      setOrigen('enlace');
+    }
+
+    setPegando(false);
+    onSucio();
+    if (cuantos === 0) {
+      toast('No reconocí ningún dato. Revisá que cada renglón tenga "Campo: valor".');
+      return;
+    }
+    toast(
+      `${cuantos} ${cuantos === 1 ? 'campo completado' : 'campos completados'}` +
+        (ignoradas.length ? `. Sin reconocer: ${ignoradas.join(', ')}` : '') +
+        '. Falta marcar el punto en el mapa.',
+      'success',
+    );
   }
 
   const mutation = useMutation({
@@ -142,6 +183,13 @@ export function CircuitForm({ editing, onDone }: Props) {
   return (
     <form
       className="space-y-4"
+      /*
+        Un solo listener para los diecisiete campos: `input` burbujea desde todos
+        los controles nativos, así que no hay que tocar cada onChange. Lo que no
+        pasa por un control nativo —el punto en el mapa, el GPX soltado en la
+        zona, las fotos— avisa desde su propio handler.
+      */
+      onInput={onSucio}
       onSubmit={(e) => {
         e.preventDefault();
         if (origen === 'gpx') {
@@ -166,6 +214,23 @@ export function CircuitForm({ editing, onDone }: Props) {
         mutation.mutate();
       }}
     >
+      {/*
+        Los datos llegan por WhatsApp con la planilla de docs/PLANTILLA-CIRCUITO.md,
+        en texto o transcritos de un audio. Pegarlos completa el formulario de una
+        vez, en vez de tipear campo por campo; nada se guarda sin revisarlo.
+      */}
+      {!editing && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setPegando(true)}
+            className="min-h-9 text-sm font-medium text-brand-300 underline-offset-4 hover:text-brand-200 hover:underline"
+          >
+            Pegar datos de un mensaje
+          </button>
+        </div>
+      )}
+
       {!editing && (
         <div
           className="flex gap-1 rounded-xl bg-white/8 p-1 ring-1 ring-white/10"
@@ -222,7 +287,13 @@ export function CircuitForm({ editing, onDone }: Props) {
             }
           />
 
-          <LocationPicker value={punto} onChange={setPunto} />
+          <LocationPicker
+            value={punto}
+            onChange={(p) => {
+              onSucio();
+              setPunto(p);
+            }}
+          />
 
           <div className="grid grid-cols-2 gap-3">
             <Field
@@ -501,6 +572,49 @@ export function CircuitForm({ editing, onDone }: Props) {
           Cancelar
         </Button>
       </div>
+
+      {pegando && <PegarDatosModal onAplicar={aplicarPegado} onClose={() => setPegando(false)} />}
     </form>
+  );
+}
+
+/** Caja para volcar el mensaje con la planilla llena. */
+function PegarDatosModal({
+  onAplicar,
+  onClose,
+}: {
+  onAplicar: (texto: string) => void;
+  onClose: () => void;
+}) {
+  const [texto, setTexto] = useState('');
+
+  return (
+    <Modal title="Pegar datos de un mensaje" onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-sm text-white/70">
+          Pegá la respuesta completa, tal como te llegó. Se completa lo que se entienda y el resto
+          queda como está. El punto de partida se marca después en el mapa.
+        </p>
+        <textarea
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          rows={10}
+          autoFocus
+          placeholder={'Nombre: Quebrada del Cóndor\nDisciplina: Enduro\nProvincia: La Rioja\n…'}
+          className={textareaClass}
+          aria-label="Mensaje con los datos del circuito"
+        />
+        <Button
+          type="button"
+          variante="primary"
+          tamano="lg"
+          ancho
+          disabled={texto.trim() === ''}
+          onClick={() => onAplicar(texto)}
+        >
+          Completar el formulario
+        </Button>
+      </div>
+    </Modal>
   );
 }

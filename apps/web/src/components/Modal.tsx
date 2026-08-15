@@ -9,14 +9,27 @@ export function Modal({
   onClose,
   children,
   size = 'md',
+  cierreExterno = true,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
   size?: 'md' | 'lg';
+  /**
+   * Si es `false`, el clic en el fondo y Escape dejan de cerrar. Para formularios
+   * largos: un toque al aire tiraba todo lo cargado sin preguntar. El botón ✕
+   * sigue funcionando siempre, así que nunca queda una trampa sin salida.
+   */
+  cierreExterno?: boolean;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [cerrando, setCerrando] = useState(false);
+  // el listener de teclado se registra una vez y se queda con el primer render;
+  // sin este ref leería `cerrando` siempre en false y Escape repetido programaría
+  // un onClose por cada pulsación
+  const cerrandoRef = useRef(false);
+  const cierreExternoRef = useRef(cierreExterno);
+  cierreExternoRef.current = cierreExterno;
 
   /*
    * Salida animada sin tocar a quien usa el modal.
@@ -28,7 +41,8 @@ export function Modal({
    * pasa por acá, incluidos Escape y el clic en el fondo.
    */
   const cerrar = () => {
-    if (cerrando) return;
+    if (cerrandoRef.current) return;
+    cerrandoRef.current = true;
     setCerrando(true);
     setTimeout(onClose, SALIDA_MS);
   };
@@ -40,7 +54,9 @@ export function Modal({
 
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
-        cerrar();
+        // por ref: el listener se registra una vez y `cierreExterno` puede cambiar
+        // después, en cuanto el formulario de adentro tiene algo escrito
+        if (cierreExternoRef.current) cerrar();
         return;
       }
       if (e.key !== 'Tab') return;
@@ -75,7 +91,7 @@ export function Modal({
       className={`fondo-modal fixed inset-0 z-[1000] flex items-end justify-center bg-black/60 p-0 backdrop-blur-[2px] sm:items-center sm:p-4 ${
         cerrando ? 'saliendo' : ''
       }`}
-      onClick={cerrar}
+      onClick={cierreExterno ? cerrar : undefined}
     >
       <div
         ref={panelRef}
