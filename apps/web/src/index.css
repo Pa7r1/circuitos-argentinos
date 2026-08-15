@@ -262,6 +262,18 @@ h2 {
   animation: bajar-aviso var(--duracion-media) var(--ease-salida);
 }
 
+/* y se va por donde vino, en vez de desaparecer de golpe */
+@keyframes subir-aviso {
+  to {
+    translate: 0 -14px;
+    opacity: 0;
+  }
+}
+
+.aviso.saliendo {
+  animation: subir-aviso var(--duracion-rapida) var(--ease-entrada) forwards;
+}
+
 /*
  * Modal. El fondo se funde y el panel sube desde abajo en el teléfono, donde el
  * modal es una hoja, y aparece en el lugar en pantallas grandes.

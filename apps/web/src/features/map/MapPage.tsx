@@ -58,6 +58,9 @@ export function MapPage() {
   // que volver a pintarse cuando cambia el nivel para deshabilitarse en los topes
   const [map, setMap] = useState<LeafletMap | null>(null);
   const [myPosition, setMyPosition] = useState<[number, number] | null>(null);
+  // 'desconocido' mientras no se sabe, o si el navegador no expone permissions
+  const [permiso, setPermiso] = useState<PermissionState | 'desconocido'>('desconocido');
+  const [avisoUbicacionCerrado, setAvisoUbicacionCerrado] = useState(false);
   const [layer, setLayer] = useState<MapLayer>('satelite');
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [place, setPlace] = useState<Place | null>(null);
@@ -149,6 +152,8 @@ export function MapPage() {
       (pos) => {
         const lonLat: [number, number] = [pos.coords.longitude, pos.coords.latitude];
         setMyPosition(lonLat);
+        // si llegó una posición, el permiso está dado: el aviso ya no hace falta
+        setPermiso('granted');
         setPlace(null);
         const map = mapRef.current;
         if (!map || !L) return;
@@ -172,9 +177,11 @@ export function MapPage() {
           }).addTo(map);
         }
       },
-      () => {
-        if (fromButton) {
-          toast('No pudimos obtener tu ubicación. Revisá el permiso del navegador.');
+      (err) => {
+        // PERMISSION_DENIED: no es un fallo pasajero, no tiene sentido reintentar
+        if (err.code === err.PERMISSION_DENIED) setPermiso('denied');
+        else if (fromButton) {
+          toast('No pudimos obtener tu ubicación. Probá de nuevo en un rato.');
         }
       },
       // alta precisión: usa el GPS del teléfono, que es donde importa
@@ -182,10 +189,37 @@ export function MapPage() {
     );
   }
 
-  // se pide la ubicación una sola vez, cuando el mapa ya puede mostrarla
+  /*
+   * Preguntar por el permiso antes de pedirlo.
+   *
+   * Antes se llamaba a getCurrentPosition apenas cargaba el mapa: si la persona
+   * denegaba, o dejaba el cartel del navegador sin contestar hasta que vencía el
+   * timeout de 15 s, no aparecía absolutamente nada. El mapa se quedaba en La Rioja
+   * y el "cerca mío" no andaba, sin ninguna explicación.
+   *
+   * `navigator.permissions` no existe en Safari viejo: ahí se pide como siempre.
+   */
   useEffect(() => {
-    if (L) locateMe();
-     
+    if (!L) return;
+    if (!navigator.permissions) {
+      locateMe();
+      return;
+    }
+    let vigente = true;
+    navigator.permissions
+      .query({ name: 'geolocation' })
+      .then((estado) => {
+        if (!vigente) return;
+        setPermiso(estado.state);
+        if (estado.state === 'granted') locateMe();
+      })
+      .catch(() => {
+        if (vigente) locateMe();
+      });
+    return () => {
+      vigente = false;
+    };
+
   }, [L]);
 
   // pines
@@ -343,11 +377,44 @@ export function MapPage() {
         layer={layer}
         onLayerChange={setLayer}
         onLocate={() => locateMe(true)}
+        ubicacionBloqueada={permiso === 'denied'}
         onAyuda={() => {
           reabrirTour('mapa');
           setVerTour(true);
         }}
       />
+
+      {/*
+        Por qué pedimos la ubicación, antes de pedirla. Un permiso que salta solo y
+        sin contexto se deniega de entrada, y una vez denegado el navegador no
+        vuelve a preguntar: hay que ir a la configuración del sitio a mano.
+
+        No tapa el mapa ni exige contestar: se puede ignorar y seguir usando todo.
+      */}
+      {!isPending && !isError && !avisoUbicacionCerrado && permiso !== 'granted' && permiso !== 'desconocido' && (
+        <div className="hoja flotante absolute bottom-24 left-1/2 z-[500] w-[90%] max-w-sm -translate-x-1/2 rounded-2xl p-4">
+          <p className="mb-3 text-sm text-white/80">
+            {permiso === 'denied'
+              ? 'Tenés la ubicación bloqueada para este sitio. Se habilita desde el candado de la barra de direcciones, y sirve para ordenar los circuitos por cercanía.'
+              : 'Si compartís tu ubicación, ordenamos los circuitos por los que te quedan más cerca.'}
+          </p>
+          <div className="flex gap-2">
+            {permiso !== 'denied' && (
+              <Button variante="primary" className="flex-1" onClick={() => locateMe(true)}>
+                Usar mi ubicación
+              </Button>
+            )}
+            <Button
+              variante="secondary"
+              ancho={permiso === 'denied'}
+              className={permiso === 'denied' ? '' : 'shrink-0'}
+              onClick={() => setAvisoUbicacionCerrado(true)}
+            >
+              {permiso === 'denied' ? 'Entendido' : 'Ahora no'}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/*
         El mapa ocupa la pantalla entera, así que no hay "abajo de todo" donde poner

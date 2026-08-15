@@ -17,6 +17,7 @@ export function MapControls({
   onLayerChange,
   onLocate,
   onAyuda,
+  ubicacionBloqueada = false,
 }: {
   map: LeafletMap | null;
   layer: MapLayer;
@@ -24,6 +25,8 @@ export function MapControls({
   onLocate: () => void;
   /** Vuelve a abrir el recorrido guiado. */
   onAyuda: () => void;
+  /** El permiso está denegado: el botón no puede hacer nada y lo dice. */
+  ubicacionBloqueada?: boolean;
 }) {
   const [zoom, setZoom] = useState<number | null>(null);
 
@@ -62,9 +65,18 @@ export function MapControls({
         </Boton>
       </div>
 
+      {/*
+        Con el permiso denegado el botón queda apagado y explica por qué. Antes
+        seguía encendido y no pasaba nada al tocarlo, que se lee como app rota.
+      */}
       <Boton
         onClick={onLocate}
-        etiqueta="Centrar el mapa en mi ubicación"
+        disabled={ubicacionBloqueada}
+        etiqueta={
+          ubicacionBloqueada
+            ? 'Bloqueaste la ubicación en este navegador'
+            : 'Centrar el mapa en mi ubicación'
+        }
         className="flotante rounded-xl"
       >
         <IconoUbicacion />
