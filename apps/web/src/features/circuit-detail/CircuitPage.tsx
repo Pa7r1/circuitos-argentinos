@@ -258,7 +258,16 @@ export function CircuitPage() {
   const directionsUrl = isTouch
     ? `geo:${lat},${lon}?q=${lat},${lon}(${encodeURIComponent(circuit.name)})`
     : `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`;
-  const warnAccess = circuit.accessType !== 'libre' || circuit.accessNotes;
+  /*
+   * El color lo decide el tipo de acceso y nada más.
+   *
+   * Antes cualquier nota lo teñía de ámbar, así que un circuito de entrada libre
+   * con una aclaración buena ("tranquera abierta todo el año") se mostraba con el
+   * color y el signo de advertencia de uno que pide permiso. El acceso es el dato
+   * que define si el viaje se puede hacer: teñirlo de alarma sin motivo es
+   * desaconsejar un circuito al que se puede ir.
+   */
+  const accesoRestringido = circuit.accessType !== 'libre';
 
   const descargarGpx = async () => {
     try {
@@ -452,17 +461,25 @@ export function CircuitPage() {
               <div className="flex items-center justify-between gap-3 py-2.5">
                 <dt className="text-white/55">Acceso</dt>
                 <dd
-                  className={`text-right font-semibold ${warnAccess ? 'text-amber-300' : 'text-green-300'}`}
+                  className={`text-right font-semibold ${accesoRestringido ? 'text-amber-300' : 'text-green-300'}`}
                 >
                   {ACCESS_LABEL[circuit.accessType]}
                 </dd>
               </div>
             </dl>
 
-            {/* la aclaración del acceso es lo que puede arruinar el viaje: va entera */}
+            {/* la aclaración del acceso es lo que puede arruinar el viaje: va entera.
+                En ámbar solo si además el acceso está restringido; en un circuito
+                libre es una indicación práctica, no una advertencia. */}
             {circuit.accessNotes && (
-              <p className="mx-5 mb-4 flex gap-2 rounded-xl border border-amber-400/30 bg-amber-500/12 p-3 text-sm text-amber-200">
-                <span aria-hidden="true">⚠</span>
+              <p
+                className={`mx-5 mb-4 flex gap-2 rounded-xl border p-3 text-sm ${
+                  accesoRestringido
+                    ? 'border-amber-400/30 bg-amber-500/12 text-amber-200'
+                    : 'border-white/10 bg-white/6 text-white/75'
+                }`}
+              >
+                <span aria-hidden="true">{accesoRestringido ? '⚠' : 'ℹ'}</span>
                 {circuit.accessNotes}
               </p>
             )}
