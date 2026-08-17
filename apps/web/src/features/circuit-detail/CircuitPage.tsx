@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import type { CircuitDetail, GeoJsonLineString } from '@circuitos/shared';
 import { DISCIPLINES } from '@circuitos/shared';
 import {
@@ -209,15 +209,27 @@ export function CircuitPage() {
   const despertando = useSlowRequest(isPending);
 
   /*
+   * Quien llega desde un enlace compartido no ve el recorrido guiado.
+   *
+   * Su primer contacto con el sitio es este circuito, que es justo lo que vino a
+   * mirar: un tutorial encima es lo que hace cerrar la pestaña. Al que llega desde
+   * el mapa sí se le muestra, porque ahí ya está recorriendo la app.
+   *
+   * `key === 'default'` es como react-router marca la primera entrada del
+   * historial; si se navegó desde el mapa, la key es otra.
+   */
+  const entradaDirecta = useLocation().key === 'default';
+
+  /*
    * El recorrido de la ficha espera a que el circuito esté cargado: antes de eso no
    * existen ni el trazado ni los botones que explica. El hook va antes de cualquier
    * `return` condicional, que es la regla de los hooks.
    */
   useEffect(() => {
-    if (!circuit || !tourPendiente('ficha')) return;
+    if (!circuit || !tourPendiente('ficha') || entradaDirecta) return;
     const id = setTimeout(() => setVerTour(true), 700);
     return () => clearTimeout(id);
-  }, [circuit]);
+  }, [circuit, entradaDirecta]);
 
   const sinSesion = !session || (error instanceof RequestError && error.statusCode === 401);
   if (sinSesion) {
