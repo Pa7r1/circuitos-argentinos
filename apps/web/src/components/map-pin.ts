@@ -27,6 +27,28 @@ export function pinSvg(color: string, letter: string): string {
     </span>`;
 }
 
+/**
+ * Varios circuitos que se pisan en pantalla, en un solo disco con la cantidad.
+ *
+ * Va en grafito y sin color de disciplina porque un grupo puede mezclarlas, y
+ * pintarlo del color de uno solo mentiría sobre lo que hay adentro. Es del mismo
+ * tamaño que un pin: la diferencia la hace el número, no el tamaño.
+ */
+export function clusterSvg(cantidad: number): string {
+  return `
+    <span class="pin" style="display:block; width:26px; height:26px">
+      <svg width="26" height="26" viewBox="0 0 26 26" xmlns="http://www.w3.org/2000/svg"
+           style="display:block; overflow:visible">
+        <circle cx="13" cy="13.8" r="10.5" fill="rgba(0,0,0,.35)" />
+        <circle cx="13" cy="13" r="10.5" fill="#231f1c" />
+        <circle cx="13" cy="13" r="10.5" fill="none" stroke="#e7e5e4" stroke-width="2.5" />
+        <text x="13" y="17.4" text-anchor="middle" fill="#e7e5e4"
+              font-family="'Archivo Variable', system-ui, sans-serif"
+              font-size="11.5" font-weight="700" letter-spacing="-0.2">${cantidad}</text>
+      </svg>
+    </span>`;
+}
+
 export const PIN_SIZE: [number, number] = [26, 26];
 /** El disco se centra en la coordenada; no hay punta que anclar. */
 export const PIN_ANCHOR: [number, number] = [13, 13];

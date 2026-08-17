@@ -7,7 +7,8 @@ import { Button, ButtonLink } from '../../components/Button';
 import { DisciplineChip } from '../../components/DisciplineChip';
 import { MapControls } from '../../components/MapControls';
 import { PieSitio } from '../../components/PieSitio';
-import { PIN_ANCHOR, PIN_SIZE, pinSvg, setPinSelected } from '../../components/map-pin';
+import { clusterSvg, PIN_ANCHOR, PIN_SIZE, pinSvg, setPinSelected } from '../../components/map-pin';
+import { agruparPines } from '../../lib/agrupar-pines';
 import { useToast } from '../../components/Toast';
 import {
   ACCESS_LABEL,
@@ -34,6 +35,15 @@ import { PlaceSearch } from './PlaceSearch';
 
 /** Radio de una búsqueda por lugar: amplio a propósito, el circuito puede estar
  * lejos del pueblo pero se llega desde ahí. */
+/**
+ * A partir de acá dos pines se dibujan como uno solo con la cantidad.
+ *
+ * El disco mide 26 px, así que 34 los junta recién cuando de verdad se tocan. En
+ * el zoom de provincia equivale a alrededor de un kilómetro —el caso que motivó
+ * esto— y al acercarse se separan solos, sin ningún umbral en metros que ajustar.
+ */
+const UMBRAL_AGRUPADO_PX = 34;
+
 const SEARCH_RADIUS_M = 80_000;
 const WIDE_RADIUS_M = 200_000;
 
@@ -222,52 +232,119 @@ export function MapPage() {
 
   }, [L]);
 
-  // pines
+  /*
+   * Pines, agrupando los que se pisan.
+   *
+   * Se redibujan enteros en cada cambio de zoom porque el agrupamiento depende de
+   * la escala: dos circuitos a 800 m son un solo punto en el zoom de provincia y
+   * dos puntos separados en el de calle. Vaciar y rellenar una capa es bastante
+   * menos código que ir agregando y quitando marcadores de a uno, y con las
+   * decenas de circuitos que caben en pantalla no se nota.
+   */
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !L) return;
-    const markers = markersRef.current;
-    const vigentes = new Set(circuits.map((i) => i.circuit.slug));
 
-    for (const [slug, marker] of markers) {
-      if (!vigentes.has(slug)) {
-        marker.remove();
-        markers.delete(slug);
-      }
-    }
-    for (const { circuit } of circuits) {
-      if (markers.has(circuit.slug)) continue;
-      const color = DISCIPLINE_COLOR[circuit.discipline] ?? '#e7e5e4';
-      const letter = DISCIPLINE_LETTER[circuit.discipline] ?? '?';
-      const marker = L.marker(
-        [circuit.startPoint.coordinates[1], circuit.startPoint.coordinates[0]],
-        {
+    const capa = L.layerGroup().addTo(map);
+    const markers = markersRef.current;
+
+    function dibujar() {
+      if (!map || !L) return;
+      capa.clearLayers();
+      markers.clear();
+
+      const grupos = agruparPines(
+        circuits.map(({ circuit }) => {
+          const punto = map.latLngToLayerPoint([
+            circuit.startPoint.coordinates[1],
+            circuit.startPoint.coordinates[0],
+          ]);
+          return { item: circuit, x: punto.x, y: punto.y };
+        }),
+        UMBRAL_AGRUPADO_PX,
+      );
+
+      for (const grupo of grupos) {
+        // un solo circuito: el pin de siempre
+        if (grupo.items.length === 1) {
+          const circuit = grupo.items[0]!;
+          const color = DISCIPLINE_COLOR[circuit.discipline] ?? '#e7e5e4';
+          const letter = DISCIPLINE_LETTER[circuit.discipline] ?? '?';
+          const marker = L.marker(
+            [circuit.startPoint.coordinates[1], circuit.startPoint.coordinates[0]],
+            {
+              icon: L.divIcon({
+                className: '',
+                html: pinSvg(color, letter),
+                iconSize: PIN_SIZE,
+                iconAnchor: PIN_ANCHOR,
+              }),
+              keyboard: true,
+              title: circuit.name,
+              // Sin esto, tocar un pin MUEVE el mapa: Leaflet enfoca el marcador y
+              // desplaza la vista para "traerlo a la vista", pero no sabe que la hoja
+              // del circuito tapa la mitad de abajo de la pantalla, así que corría el
+              // pin unos 45 px a la derecha y 93 px abajo. Está prendido por defecto
+              // desde Leaflet 1.9. El pin ahora se resalta donde está y nada se mueve.
+              autoPanOnFocus: false,
+            },
+          ).addTo(capa);
+          // con divIcon Leaflet no aplica `alt`: el nombre accesible va al elemento
+          const el = marker.getElement();
+          el?.setAttribute('role', 'button');
+          el?.setAttribute('aria-label', `${circuit.name}, ${DIFFICULTY_LABEL[circuit.difficulty]}`);
+          // ancla del recorrido guiado: alcanza con que uno de los pines lo tenga
+          el?.setAttribute('data-tour', 'pin');
+          marker.on('click', () => setSelected(circuit));
+          marker.on('keypress', () => setSelected(circuit));
+          markers.set(circuit.slug, marker);
+          continue;
+        }
+
+        // varios encimados: un disco con la cantidad, en el centro del grupo
+        const centro = map.layerPointToLatLng([grupo.x, grupo.y]);
+        const puntos = grupo.items.map(
+          (c) => [c.startPoint.coordinates[1], c.startPoint.coordinates[0]] as [number, number],
+        );
+        const cluster = L.marker(centro, {
           icon: L.divIcon({
             className: '',
-            html: pinSvg(color, letter),
+            html: clusterSvg(grupo.items.length),
             iconSize: PIN_SIZE,
             iconAnchor: PIN_ANCHOR,
           }),
           keyboard: true,
-          title: circuit.name,
-          // Sin esto, tocar un pin MUEVE el mapa: Leaflet enfoca el marcador y
-          // desplaza la vista para "traerlo a la vista", pero no sabe que la hoja
-          // del circuito tapa la mitad de abajo de la pantalla, así que corría el
-          // pin unos 45 px a la derecha y 93 px abajo. Está prendido por defecto
-          // desde Leaflet 1.9. El pin ahora se resalta donde está y nada se mueve.
+          title: `${grupo.items.length} circuitos acá`,
           autoPanOnFocus: false,
-        },
-      ).addTo(map);
-      // con divIcon Leaflet no aplica `alt`: el nombre accesible va al elemento
-      const el = marker.getElement();
-      el?.setAttribute('role', 'button');
-      el?.setAttribute('aria-label', `${circuit.name}, ${DIFFICULTY_LABEL[circuit.difficulty]}`);
-      // ancla del recorrido guiado: alcanza con que uno de los pines lo tenga
-      el?.setAttribute('data-tour', 'pin');
-      marker.on('click', () => setSelected(circuit));
-      marker.on('keypress', () => setSelected(circuit));
-      markers.set(circuit.slug, marker);
+        }).addTo(capa);
+        const el = cluster.getElement();
+        el?.setAttribute('role', 'button');
+        el?.setAttribute('aria-label', `${grupo.items.length} circuitos juntos, tocá para separar`);
+
+        const abrir = () => {
+          /*
+           * Acercar hasta que se separen. Si ya no se puede acercar más —dos
+           * circuitos en la misma coordenada, o el tope del mapa— el grupo
+           * quedaría clavado sin hacer nada, así que ahí se abre el primero.
+           */
+          if (map.getZoom() >= map.getMaxZoom()) {
+            setSelected(grupo.items[0]!);
+            return;
+          }
+          map.fitBounds(L.latLngBounds(puntos), { padding: [60, 60], maxZoom: map.getMaxZoom() });
+        };
+        cluster.on('click', abrir);
+        cluster.on('keypress', abrir);
+      }
     }
+
+    dibujar();
+    map.on('zoomend', dibujar);
+    return () => {
+      map.off('zoomend', dibujar);
+      capa.remove();
+      markers.clear();
+    };
   }, [circuits, L]);
 
   // resaltar el pin del circuito abierto
