@@ -67,6 +67,19 @@ export function ExternalMapEmbed({ url, className = '' }: { url: string; classNa
         </p>
       )}
 
+      {/*
+        El video es de UNA salida y la ficha es del circuito, así que sus cifras
+        —distancia, tiempo, velocidad— no tienen por qué coincidir con las de acá.
+        Sin esta línea, ver "43 km" en el video y "12,5 km" en la ficha se lee como
+        que uno de los dos está mal.
+      */}
+      {mapa.embedUrl && (
+        <p className="mt-2 text-sm text-white/55">
+          El video es para ver por dónde va el recorrido. Los datos del circuito son los de esta
+          ficha.
+        </p>
+      )}
+
       <a
         href={mapa.url}
         target="_blank"
