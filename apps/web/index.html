@@ -44,6 +44,9 @@
     <meta name="twitter:image:alt" content="Mapa satelital con circuitos off-road de Argentina" />
 
     <!-- iOS no lee el manifest: el nombre del icono y la barra de estado se declaran acá -->
+    <!-- el estándar va primero; el de Apple queda porque iOS todavía no lee el otro,
+         y sin este Chrome avisa por consola que el suyo está obsoleto -->
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Circuitos" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />

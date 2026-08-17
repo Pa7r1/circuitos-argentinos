@@ -11,9 +11,30 @@
 #
 # Si algo del mapa deja de verse, mirar la consola antes que el código: una CSP
 # mal calibrada rompe en silencio y solo para el visitante.
+#
+# --- Errores de consola que NO se arreglan desde acá ---
+#
+# 1. "Executing inline script violates ... script-src 'self'".
+#    Es el Bot Fight Mode de Cloudflare, que inyecta un script inline con
+#    `window.__CF$cv$params` para su challenge-platform. NO se puede permitir con
+#    un hash: ese script lleva un identificador de petición que cambia en cada
+#    carga, así que el hash nunca coincidiría dos veces. Las únicas salidas son
+#    apagar Bot Fight Mode en el panel (Security -> Bots) o convivir con el aviso,
+#    que no rompe nada del sitio. Poner 'unsafe-inline' para callarlo sería abrir
+#    la puerta al XSS que esta cabecera existe para cerrar: no se hace.
+#
+# 2. "Permissions-Policy: Unrecognized feature: interest-cohort / browsing-topics /
+#    run-ad-auction / attribution-reporting..." y el ReferenceError de tscripts.js.
+#    Vienen de adentro del iframe de Relive, no de este sitio: nosotros no mandamos
+#    Permissions-Policy. Se ven en la consola porque el navegador no separa por
+#    origen. No hay nada que corregir de este lado.
+#
+# static.cloudflareinsights.com es Web Analytics: sin él en script-src el beacon
+# queda bloqueado y no llega ninguna métrica. Es un script externo con URL estable,
+# así que acá sí alcanza con nombrar el dominio.
 
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://server.arcgisonline.com https://tile.openstreetmap.org https://circuitos-api.onrender.com; connect-src 'self' https://circuitos-api.onrender.com https://apis.datos.gob.ar https://server.arcgisonline.com https://tile.openstreetmap.org; frame-src https://www.relive.com https://strava-embeds.com https://www.wikiloc.com https://www.komoot.com https://www.google.com; form-action 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://server.arcgisonline.com https://tile.openstreetmap.org https://circuitos-api.onrender.com; connect-src 'self' https://circuitos-api.onrender.com https://apis.datos.gob.ar https://server.arcgisonline.com https://tile.openstreetmap.org https://cloudflareinsights.com; frame-src https://www.relive.com https://strava-embeds.com https://www.wikiloc.com https://www.komoot.com https://www.google.com; form-action 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin

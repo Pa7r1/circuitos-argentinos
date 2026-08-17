@@ -272,7 +272,7 @@ export function CircuitForm({ editing, onDone, onSucio = () => {} }: Props) {
             ayuda={
               mapaExterno ? (
                 mapaExterno.embedUrl ? (
-                  <span className="font-medium text-green-700">
+                  <span className="font-medium text-green-400">
                     Reconocí {mapaExterno.providerName}: el recorrido se va a ver dentro de la ficha.
                   </span>
                 ) : (
