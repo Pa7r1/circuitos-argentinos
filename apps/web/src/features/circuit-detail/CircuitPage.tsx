@@ -12,6 +12,8 @@ import {
 } from '../../lib/format';
 import { api, API_URL, RequestError } from '../../lib/api';
 import { Button, ButtonLink } from '../../components/Button';
+import { CompartirModal } from '../../components/CompartirModal';
+import { textoCompartir } from '../../lib/compartir';
 import { ExternalMapEmbed } from '../../components/ExternalMapEmbed';
 import { MapLayerToggle } from '../../components/MapLayerToggle';
 import { PieSitio } from '../../components/PieSitio';
@@ -201,6 +203,7 @@ export function CircuitPage() {
   const toast = useToast();
   const [pedirCuenta, setPedirCuenta] = useState(false);
   const [foto, setFoto] = useState<string | null>(null);
+  const [compartiendo, setCompartiendo] = useState(false);
   const [verTour, setVerTour] = useState(false);
   const { data: circuit, isPending, isError, error } = useCircuitDetail(slug!);
   const despertando = useSlowRequest(isPending);
@@ -272,23 +275,12 @@ export function CircuitPage() {
   };
 
   /*
-   * En el teléfono abre la hoja nativa de compartir; en escritorio, donde
-   * `navigator.share` no existe, copia el enlace. Las dos son API del navegador:
-   * no hace falta ninguna librería ni botones por red social.
+   * Antes esto llamaba directo a `navigator.share`, y en escritorio —donde esa API
+   * no existe— se limitaba a copiar el enlace: la persona apretaba compartir y no
+   * pasaba nada visible. Ahora abre un menú con las apps a la vista, que en el
+   * teléfono sigue ofreciendo la hoja nativa del sistema.
    */
-  const compartir = async () => {
-    const url = window.location.href;
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: circuit.name, text: `Mirá este circuito: ${circuit.name}`, url });
-        return;
-      }
-      await navigator.clipboard.writeText(url);
-      toast('Enlace copiado.');
-    } catch {
-      // cancelar la hoja de compartir también entra acá: no es un error que mostrar
-    }
-  };
+  const compartir = () => setCompartiendo(true);
 
   return (
     /*
@@ -414,9 +406,17 @@ export function CircuitPage() {
                       alt={`Foto del circuito ${circuit.name}`}
                       loading="lazy"
                       decoding="async"
-                      // el contenedor reserva la proporción, así que la página no
-                      // salta cuando la foto termina de bajar
-                      className="h-full w-full object-cover transition-transform duration-[var(--duracion-media)] ease-suave motion-safe:group-hover:scale-105"
+                      /*
+                        Aparece fundida en vez de saltar de golpe sobre el hueco
+                        gris. Se quita la clase en el DOM y no con estado: son
+                        varias fotos, cada una llega cuando llega, y montar un
+                        componente con `useState` por miniatura es más máquina de
+                        la que el efecto necesita. `onError` también la muestra,
+                        para que una foto rota no quede invisible para siempre.
+                      */
+                      onLoad={(e) => e.currentTarget.classList.remove('opacity-0')}
+                      onError={(e) => e.currentTarget.classList.remove('opacity-0')}
+                      className="h-full w-full object-cover opacity-0 transition-[opacity,transform] duration-[var(--duracion-media)] ease-suave motion-safe:group-hover:scale-105"
                     />
                   </button>
                 ))}
@@ -511,6 +511,15 @@ export function CircuitPage() {
       )}
 
       {foto && <VisorFoto src={foto} onClose={() => setFoto(null)} />}
+
+      {compartiendo && (
+        <CompartirModal
+          nombre={circuit.name}
+          texto={textoCompartir(circuit.name, circuit.locality)}
+          url={window.location.href}
+          onClose={() => setCompartiendo(false)}
+        />
+      )}
     </main>
   );
 }
