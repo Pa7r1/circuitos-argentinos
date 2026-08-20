@@ -32,9 +32,65 @@
 # static.cloudflareinsights.com es Web Analytics: sin él en script-src el beacon
 # queda bloqueado y no llega ninguna métrica. Es un script externo con URL estable,
 # así que acá sí alcanza con nombrar el dominio.
+#
+# --- Caché: por qué hay varios bloques y no uno solo ---
+#
+# Cloudflare **junta** los bloques que coinciden con una misma URL, y si una
+# cabecera aparece dos veces pega los valores con una coma. O sea que poner
+# Cache-Control en /* y otro en /assets/* no da "gana el más específico": da
+# "no-cache, public, max-age=31536000, immutable", donde el no-cache manda y el
+# año de caché no sirve para nada. Por eso los patrones de Cache-Control son
+# disjuntos: /* solo lleva las cabeceras de seguridad.
+#
+# El index.html va sin caché a propósito. Es el único archivo con los nombres de
+# los chunks del build actual; si el navegador lo sirve de su caché, pide los
+# chunks viejos, que ya no existen, y con not_found_handling: single-page-application
+# recibe el index.html con estado 200 e intenta ejecutar HTML como JavaScript.
+# Ahí se muere la ruta. sw.js lo mismo: un service worker cacheado no se entera
+# de que hay versión nueva.
+#
+# Los de /assets/ y /fonts/ llevan hash o revisión en la URL: un archivo nuevo es
+# una URL nueva, así que se pueden cachear para siempre sin riesgo.
+#
+# CADA RUTA DEL ROUTER NECESITA SU BLOQUE. Al sumar una ruta en src/main.tsx hay
+# que sumarla acá, porque el servidor le responde el mismo index.html y sin regla
+# propia se queda con el Cache-Control por defecto de Workers Assets.
 
 /*
   Content-Security-Policy: default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://server.arcgisonline.com https://tile.openstreetmap.org https://circuitos-api.onrender.com; connect-src 'self' https://circuitos-api.onrender.com https://apis.datos.gob.ar https://server.arcgisonline.com https://tile.openstreetmap.org https://cloudflareinsights.com; frame-src https://www.relive.com https://strava-embeds.com https://www.wikiloc.com https://www.komoot.com https://www.google.com; form-action 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
+
+/
+  Cache-Control: no-cache
+
+/index.html
+  Cache-Control: no-cache
+
+/sw.js
+  Cache-Control: no-cache
+
+/circuitos/*
+  Cache-Control: no-cache
+
+/proponer
+  Cache-Control: no-cache
+
+/admin
+  Cache-Control: no-cache
+
+/terminos
+  Cache-Control: no-cache
+
+/privacidad
+  Cache-Control: no-cache
+
+/restablecer
+  Cache-Control: no-cache
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable

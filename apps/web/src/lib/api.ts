@@ -1,6 +1,8 @@
 import type {
   AdminCircuitDetail,
-  AdminCircuitListItem,
+  AdminCircuitList,
+  AdminStats,
+  CircuitStatus,
   ApiError,
   AuthResponse,
   AuthUser,
@@ -167,16 +169,52 @@ export const api = {
   },
 
   admin: {
-    list(): Promise<AdminCircuitListItem[]> {
-      return request('/admin/circuits', { headers: authHeaders() });
+    /**
+     * Lista paginada del panel. El servidor ordena (publicados, propuestos,
+     * archivados y el resto) y devuelve el total junto a la página.
+     */
+    listPaginado(params: {
+      limit?: number;
+      offset?: number;
+      estado?: CircuitStatus;
+      q?: string;
+    } = {}): Promise<AdminCircuitList> {
+      const query = new URLSearchParams();
+      if (params.limit !== undefined) query.set('limit', String(params.limit));
+      if (params.offset !== undefined) query.set('offset', String(params.offset));
+      if (params.estado) query.set('estado', params.estado);
+      if (params.q) query.set('q', params.q);
+      const qs = query.toString();
+      return request(`/admin/circuits${qs ? `?${qs}` : ''}`, { headers: authHeaders() });
     },
 
     detail(id: string): Promise<AdminCircuitDetail> {
       return request(`/admin/circuits/${id}`, { headers: authHeaders() });
     },
 
-    stats(): Promise<{ published: number; draft: number; archived: number; users: number }> {
+    stats(): Promise<AdminStats> {
       return request('/admin/stats', { headers: authHeaders() });
+    },
+
+    /**
+     * Los bytes de una foto del panel, con la sesión de admin.
+     *
+     * `/media` sirve solo circuitos publicados, así que un `<img src>` plano no
+     * alcanza para las fotos de un borrador, una propuesta o algo rechazado: son
+     * justo los estados que hay que mirar para decidir qué hacer con ellos. Y como
+     * esto va con cabecera de autorización, un `src` no sirve: hay que traer el
+     * blob y armar una URL de objeto.
+     *
+     * De la url guardada (`/media/<id>/<archivo>`) solo se manda el último tramo;
+     * la pertenencia la comprueba el servidor contra la base, no comparando texto.
+     */
+    async foto(id: string, url: string): Promise<Blob> {
+      const archivo = url.split('/').pop() ?? '';
+      const res = await fetch(`${API_URL}/api/v1/admin/circuits/${id}/media/${archivo}`, {
+        headers: authHeaders(),
+      });
+      if (!res.ok) throw new RequestError(res.status, 'FOTO_NO_DISPONIBLE', 'No se pudo traer la foto');
+      return res.blob();
     },
 
     removeMedia(id: string, url: string): Promise<void> {
@@ -201,6 +239,17 @@ export const api = {
 
     archive(id: string): Promise<void> {
       return request(`/admin/circuits/${id}`, { method: 'DELETE', headers: authHeaders() });
+    },
+
+    /**
+     * Borrado irreversible: se lleva fotos, GPX y horarios. El servidor solo lo
+     * acepta sobre circuitos ya archivados o rechazados.
+     */
+    borrarDefinitivo(id: string): Promise<void> {
+      return request(`/admin/circuits/${id}/definitivo`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
     },
 
     uploadMedia(id: string, file: File): Promise<{ url: string }> {

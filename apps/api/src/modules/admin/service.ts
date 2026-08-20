@@ -1,13 +1,14 @@
 import type {
-  AdminCircuitListItem,
+  AdminCircuitList,
+  AdminStats,
   CircuitCreateFields,
   CircuitUpdateBody,
 } from '@circuitos/shared';
 import type { Config } from '../../config.js';
-import { badRequest, DomainError, notFound } from '../../lib/errors.js';
+import { badRequest, conflict, DomainError, notFound } from '../../lib/errors.js';
 import { processGpx, trackToWkt } from '../../lib/gpx.js';
 import { uniqueSlug } from '../../lib/slug.js';
-import type { AdminRepository, CircuitUpdateSets } from './repository.js';
+import type { AdminRepository, CircuitUpdateSets, ListAllOptions } from './repository.js';
 
 const IMAGE_TYPES: { ext: string; mime: string; matches: (b: Buffer) => boolean }[] = [
   { ext: 'jpg', mime: 'image/jpeg', matches: (b) => b.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])) },
@@ -28,12 +29,8 @@ const gpxDownloadUrl = (slug: string) => `/api/v1/circuits/${slug}/gpx`;
  */
 const pointWkt = (lon: number, lat: number) => `POINT(${lon} ${lat})`;
 
-export interface AdminStats {
-  published: number;
-  draft: number;
-  archived: number;
-  users: number;
-}
+/** Los únicos estados desde los que se puede borrar una fila de verdad. */
+const BORRABLES: readonly string[] = ['rechazado', 'archived'];
 
 /** Tope de fotos por propuesta: suficiente para mostrar el lugar, sin volverse un álbum. */
 const MAX_FOTOS_PROPUESTA = 3;
@@ -78,18 +75,33 @@ export function adminService(
   }
 
   return {
-    list(): Promise<AdminCircuitListItem[]> {
-      return repo.listAll();
+    list(opts: ListAllOptions): Promise<AdminCircuitList> {
+      return repo.listAll(opts);
     },
 
     async stats(): Promise<AdminStats> {
       const [counts, users] = await Promise.all([repo.counts(), countUsers()]);
+      // los cinco estados, no tres: faltando dos, la suma no daba nunca la cantidad
+      // de filas que muestra la lista y parecía que se perdían circuitos
       return {
         published: counts.published ?? 0,
         draft: counts.draft ?? 0,
         archived: counts.archived ?? 0,
+        propuesto: counts.propuesto ?? 0,
+        rechazado: counts.rechazado ?? 0,
         users,
       };
+    },
+
+    /**
+     * Bytes de una foto para el panel. No mira el estado del circuito a propósito:
+     * la ruta pública `/media` sirve solo lo publicado y esta es la vía por la que
+     * el panel ve las miniaturas de un borrador, una propuesta o un rechazado.
+     */
+    async photo(id: string, fileName: string): Promise<{ data: Buffer; contentType: string }> {
+      const foto = await repo.mediaOfCircuit(id, fileName);
+      if (!foto) throw notFound('Foto no encontrada');
+      return foto;
     },
 
     async removeMedia(id: string, url: string): Promise<void> {
@@ -124,6 +136,25 @@ export function adminService(
       },
     ): Promise<{ id: string; slug: string }> {
       const { disciplineId, provinceId } = await resolveRefs(fields.discipline, fields.province);
+
+      /*
+       * Freno a la propuesta repetida. Va acá y no en un índice único de la base
+       * porque volver a proponer un circuito después de que se lo rechazaron es
+       * legítimo, y un índice lo bloquearía para siempre. Solo mira lo que esa
+       * misma persona tiene sin revisar.
+       *
+       * Sin esto, el doble toque en el botón dejaba dos filas ("x" y "x-2"):
+       * `uniqueSlug` desambigua el slug, no evita el duplicado.
+       */
+      if (origen.status === 'propuesto' && origen.createdBy) {
+        if (await repo.propuestaPendienteConNombre(origen.createdBy, fields.name)) {
+          throw conflict(
+            'PROPUESTA_DUPLICADA',
+            'Ya nos mandaste este circuito y lo estamos revisando. Te avisamos cuando lo publiquemos.',
+          );
+        }
+      }
+
       const slug = await uniqueSlug(fields.name, (s) => repo.slugExists(s));
 
       const gpx = gpxBuffer ? processGpx(gpxBuffer.toString('utf8')) : null;
@@ -206,6 +237,26 @@ export function adminService(
       const existing = await repo.findById(id);
       if (!existing) throw notFound('Circuito no encontrado');
       await repo.update(id, { status: 'archived' });
+    },
+
+    /**
+     * Borrado real e irreversible. Se lleva fotos, GPX y horarios por el
+     * `ON DELETE CASCADE` de las tablas hijas.
+     *
+     * Solo sobre `rechazado` o `archived`: son los dos estados que significan
+     * "esto ya no va", y exigir el paso previo hace que borrar algo publicado por
+     * error necesite dos acciones deliberadas en vez de un clic.
+     */
+    async deleteForever(id: string): Promise<void> {
+      const existing = await repo.findById(id);
+      if (!existing) throw notFound('Circuito no encontrado');
+      if (!BORRABLES.includes(existing.status)) {
+        throw conflict(
+          'BORRADO_NO_PERMITIDO',
+          'Antes de borrarlo para siempre hay que archivarlo o rechazarlo.',
+        );
+      }
+      await repo.deleteById(id);
     },
 
     addMedia: guardarFoto,

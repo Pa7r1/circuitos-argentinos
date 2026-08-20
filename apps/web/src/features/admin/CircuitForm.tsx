@@ -13,10 +13,11 @@ import { Button } from '../../components/Button';
 import { Field, SelectField } from '../../components/Field';
 import { Modal } from '../../components/Modal';
 import { useToast } from '../../components/Toast';
-import { api, API_URL, RequestError } from '../../lib/api';
+import { api, mensajeParaPersona } from '../../lib/api';
 import { resizeImage } from '../../lib/image';
 import { ACCESS_LABEL, DAY_LABEL, DIFFICULTY_LABEL } from '../../lib/format';
 import { circuitKeys } from '../../lib/queries';
+import { FotoDelPanel } from './FotoDelPanel';
 import { GpxPreview, parseGpxCoordinates } from './GpxPreview';
 import { parsearPlantilla } from './pegar-datos';
 
@@ -161,18 +162,45 @@ export function CircuitForm({ editing, onDone, onSucio = () => {} }: Props) {
         const created = await api.admin.create(form);
         circuitId = created.id;
       }
+      /*
+       * Una foto que falla no puede hundir el alta, y esta es la razón por la que
+       * en el panel aparecían circuitos repetidos.
+       *
+       * Antes el `await` cortaba el bucle: la mutación entera caía en `onError`, el
+       * modal quedaba abierto y no se invalidaba nada, así que quien volvía a
+       * apretar "Crear borrador" creaba un **segundo circuito** —con el mismo
+       * nombre y el slug con sufijo, porque `uniqueSlug` no rechaza, agrega `-2`—.
+       * El circuito ya estaba creado; lo único que había fallado era una imagen.
+       */
+      let fotosCaidas = 0;
       for (const photo of photos) {
-        await api.admin.uploadMedia(circuitId, await resizeImage(photo));
+        try {
+          await api.admin.uploadMedia(circuitId, await resizeImage(photo));
+        } catch (e) {
+          // el detalle técnico a la consola; a la pantalla va el recuento, abajo
+          console.error(e);
+          fotosCaidas += 1;
+        }
       }
+      return { fotosCaidas };
     },
-    onSuccess: () => {
+    onSuccess: ({ fotosCaidas }) => {
       void queryClient.invalidateQueries({ queryKey: circuitKeys.all });
       void queryClient.invalidateQueries({ queryKey: circuitKeys.adminList });
-      toast(editing ? 'Circuito actualizado' : 'Circuito creado como borrador', 'success');
+      void queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+      if (fotosCaidas > 0) {
+        toast(
+          fotosCaidas === 1
+            ? 'Se guardó el circuito, pero una foto no se pudo subir. Editalo y volvé a intentarla.'
+            : `Se guardó el circuito, pero ${String(fotosCaidas)} fotos no se pudieron subir. Editalo y volvé a intentarlas.`,
+        );
+      } else {
+        toast(editing ? 'Circuito actualizado' : 'Circuito creado como borrador', 'success');
+      }
       onDone();
     },
     onError: (error) => {
-      toast(error instanceof RequestError ? error.message : 'No se pudo guardar el circuito');
+      toast(mensajeParaPersona(error));
     },
   });
 
@@ -544,25 +572,42 @@ export function CircuitForm({ editing, onDone, onSucio = () => {} }: Props) {
               .filter((m) => !borradas.includes(m.url))
               .map((m) => (
                 <div key={m.url} className="relative">
-                  <img
-                    src={`${API_URL}${m.url}`}
-                    alt=""
+                  <FotoDelPanel
+                    circuitId={editing.id}
+                    url={m.url}
                     className="h-20 w-20 rounded-lg object-cover"
                   />
+                  {/*
+                    La foto se saca de la lista **antes** de pedir el borrado, y se
+                    devuelve si el pedido falla. Además de que la respuesta se ve al
+                    instante, es lo que evita el segundo clic: el botón desaparece
+                    con la miniatura. Antes se podía apretar dos veces, y el segundo
+                    pedido daba 404 sobre una foto ya borrada, así que la pantalla
+                    decía "no se pudo borrar" justo cuando sí se había borrado.
+
+                    El botón mide 44 px para el dedo aunque el disco que se ve sea de
+                    28, y va dentro de la miniatura: colgado en la esquina se apoyaba
+                    sobre la foto de al lado.
+                  */}
                   <button
                     type="button"
                     aria-label="Borrar esta foto"
-                    onClick={async () => {
-                      try {
-                        await api.admin.removeMedia(editing.id, m.url);
-                        setBorradas((prev) => [...prev, m.url]);
-                      } catch {
-                        toast('No se pudo borrar la foto');
-                      }
+                    onClick={() => {
+                      setBorradas((prev) => [...prev, m.url]);
+                      api.admin.removeMedia(editing.id, m.url).catch((e: unknown) => {
+                        console.error(e);
+                        setBorradas((prev) => prev.filter((u) => u !== m.url));
+                        toast(mensajeParaPersona(e));
+                      });
                     }}
-                    className="absolute -top-1.5 -right-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-red-700 text-xs text-white shadow"
+                    className="absolute top-0 right-0 flex h-11 w-11 items-center justify-center"
                   >
-                    ✕
+                    <span
+                      aria-hidden="true"
+                      className="flex h-7 w-7 items-center justify-center rounded-full bg-red-700 text-xs text-white shadow"
+                    >
+                      ✕
+                    </span>
                   </button>
                 </div>
               ))}

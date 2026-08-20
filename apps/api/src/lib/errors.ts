@@ -18,6 +18,8 @@ export const unauthorized = (message = 'No autorizado') =>
   new DomainError(401, 'NO_AUTORIZADO', message);
 export const notFound = (message = 'Recurso no encontrado') =>
   new DomainError(404, 'NO_ENCONTRADO', message);
+/** El pedido es válido pero choca con el estado actual del recurso (duplicado, orden de pasos). */
+export const conflict = (code: string, message: string) => new DomainError(409, code, message);
 
 /** Handler central: errores de dominio y de validación al cliente; el resto, 500 genérico. */
 export function errorHandler(

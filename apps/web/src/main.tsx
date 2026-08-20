@@ -2,8 +2,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { AvisoActualizacion } from './components/AvisoActualizacion';
+import { LimiteDeError } from './components/LimiteDeError';
 import { ToastProvider } from './components/Toast';
 import { RequestError } from './lib/api';
+import { vigilarChunksAusentes } from './lib/recarga-por-chunk';
+import { registrarServiceWorker } from './lib/registrar-sw';
 import { RestablecerPage } from './features/auth/RestablecerPage';
 import { CircuitPage } from './features/circuit-detail/CircuitPage';
 import { PrivacidadPage } from './features/legal/PrivacidadPage';
@@ -19,6 +23,14 @@ const ProponerPage = React.lazy(() =>
 const AdminPage = React.lazy(() =>
   import('./features/admin/AdminPage').then((m) => ({ default: m.AdminPage })),
 );
+
+/*
+ * Antes de montar nada: la vigilancia de chunks tiene que estar puesta antes del
+ * primer import diferido, y el registro del service worker es lo que convierte
+ * una publicación nueva en un aviso en pantalla en vez de una pestaña zombi.
+ */
+vigilarChunksAusentes();
+registrarServiceWorker();
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -39,39 +51,45 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<MapPage />} />
-            <Route path="/circuitos/:slug" element={<CircuitPage />} />
-            <Route path="/restablecer" element={<RestablecerPage />} />
-            {/* diferida como el panel: es una pantalla secundaria y el mapa es lo
+        {/* por dentro del ToastProvider y del aviso de actualización: si lo que
+            falla es una pantalla, el botón de "Volver a cargar" tiene que seguir
+            estando, y el aviso de versión nueva también */}
+        <LimiteDeError>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<MapPage />} />
+              <Route path="/circuitos/:slug" element={<CircuitPage />} />
+              <Route path="/restablecer" element={<RestablecerPage />} />
+              {/* diferida como el panel: es una pantalla secundaria y el mapa es lo
                 primero que tiene que aparecer */}
-            <Route
-              path="/proponer"
-              element={
-                <React.Suspense fallback={<div className="p-6 text-center">Cargando…</div>}>
-                  <ProponerPage />
-                </React.Suspense>
-              }
-            />
-            <Route path="/terminos" element={<TerminosPage />} />
-            <Route path="/privacidad" element={<PrivacidadPage />} />
-            <Route
-              path="/admin"
-              element={
-                <React.Suspense fallback={<div className="p-6 text-center">Cargando…</div>}>
-                  <AdminPage />
-                </React.Suspense>
-              }
-            />
-            {/*
+              <Route
+                path="/proponer"
+                element={
+                  <React.Suspense fallback={<div className="p-6 text-center">Cargando…</div>}>
+                    <ProponerPage />
+                  </React.Suspense>
+                }
+              />
+              <Route path="/terminos" element={<TerminosPage />} />
+              <Route path="/privacidad" element={<PrivacidadPage />} />
+              <Route
+                path="/admin"
+                element={
+                  <React.Suspense fallback={<div className="p-6 text-center">Cargando…</div>}>
+                    <AdminPage />
+                  </React.Suspense>
+                }
+              />
+              {/*
               Comodín. Sin esta ruta, una dirección inexistente no encontraba nada
               que pintar y la pantalla quedaba en blanco: parecía la app rota y no
               una página que no existe.
             */}
-            <Route path="*" element={<NoEncontrado />} />
-          </Routes>
-        </BrowserRouter>
+              <Route path="*" element={<NoEncontrado />} />
+            </Routes>
+          </BrowserRouter>
+        </LimiteDeError>
+        <AvisoActualizacion />
       </ToastProvider>
     </QueryClientProvider>
   </React.StrictMode>,
