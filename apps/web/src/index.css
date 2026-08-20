@@ -405,3 +405,18 @@ h2 {
 .leaflet-container .leaflet-bottom {
   z-index: 400;
 }
+
+/*
+ * Entrada de cada paso del asistente de carga. Se anima solo `opacity` y
+ * `translate`, y la curva es la misma que usa el resto de las entradas.
+ */
+@keyframes entrar-paso {
+  from {
+    translate: 0 10px;
+    opacity: 0;
+  }
+}
+
+.paso-entra {
+  animation: entrar-paso var(--duracion-media) var(--ease-salida);
+}
