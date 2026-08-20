@@ -12,7 +12,10 @@ import { MapPage } from './features/map/MapPage';
 import { NoEncontrado } from './features/NoEncontrado';
 import './index.css';
 
-// el panel admin no forma parte del uso público: se carga solo al entrar a /admin
+// pantallas secundarias: se cargan solo al entrar, para no pesar en el arranque del mapa
+const ProponerPage = React.lazy(() =>
+  import('./features/proponer/ProponerPage').then((m) => ({ default: m.ProponerPage })),
+);
 const AdminPage = React.lazy(() =>
   import('./features/admin/AdminPage').then((m) => ({ default: m.AdminPage })),
 );
@@ -41,6 +44,16 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="/" element={<MapPage />} />
             <Route path="/circuitos/:slug" element={<CircuitPage />} />
             <Route path="/restablecer" element={<RestablecerPage />} />
+            {/* diferida como el panel: es una pantalla secundaria y el mapa es lo
+                primero que tiene que aparecer */}
+            <Route
+              path="/proponer"
+              element={
+                <React.Suspense fallback={<div className="p-6 text-center">Cargando…</div>}>
+                  <ProponerPage />
+                </React.Suspense>
+              }
+            />
             <Route path="/terminos" element={<TerminosPage />} />
             <Route path="/privacidad" element={<PrivacidadPage />} />
             <Route

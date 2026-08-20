@@ -18,9 +18,20 @@ const STATUS_STYLE: Record<CircuitStatus, string> = {
   draft: 'bg-white/12 text-white/75',
   published: 'bg-green-500/15 text-green-300',
   archived: 'bg-red-500/15 text-red-300',
+  // el cian es el color de acción del sitio: lo propuesto es lo único que pide algo de vos
+  propuesto: 'bg-brand-500/20 text-brand-200',
+  rechazado: 'bg-white/8 text-white/50',
 };
 
-const FILTROS: (CircuitStatus | 'todos')[] = ['todos', 'published', 'draft', 'archived'];
+// las propuestas primero: son lo único que espera una decisión
+const FILTROS: (CircuitStatus | 'todos')[] = [
+  'propuesto',
+  'todos',
+  'published',
+  'draft',
+  'archived',
+  'rechazado',
+];
 
 /** El listado guarda slugs; en pantalla van los nombres de siempre. */
 const nombreDisciplina = (slug: string) =>
@@ -163,6 +174,7 @@ export function AdminPage() {
   // el confirm() del navegador se ve distinto en cada sistema, no se puede
   // traducir ni estilar, y aparecía en medio de una interfaz cuidada
   const [porArchivar, setPorArchivar] = useState<AdminCircuitListItem | null>(null);
+  const [porRechazar, setPorRechazar] = useState<AdminCircuitListItem | null>(null);
   const [filtro, setFiltro] = useState<CircuitStatus | 'todos'>('todos');
   const [busqueda, setBusqueda] = useState('');
   const queryClient = useQueryClient();
@@ -170,6 +182,8 @@ export function AdminPage() {
 
   const esAdmin = session?.user.role === 'admin';
   const { data: circuits, isPending, isError, error } = useAdminCircuits(!!esAdmin);
+  /** Lo que espera una decisión tuya: es el número que importa del panel. */
+  const pendientes = (circuits ?? []).filter((c) => c.status === 'propuesto').length;
 
   const visibles = useMemo(() => {
     const texto = busqueda.trim().toLowerCase();
@@ -271,6 +285,11 @@ export function AdminPage() {
               }`}
             >
               {f === 'todos' ? 'Todos' : STATUS_LABEL[f]}
+              {f === 'propuesto' && pendientes > 0 && (
+                <span className="ml-1.5 rounded-full bg-brand-700 px-1.5 py-0.5 text-xs font-bold text-white tabular-nums">
+                  {pendientes}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -349,20 +368,44 @@ export function AdminPage() {
                     </ButtonLink>
                   )}
                 </div>
-                {item.status !== 'archived' && (
+                {item.status === 'propuesto' ? (
                   <Button
                     variante="danger"
                     tamano="sm"
                     className="shrink-0"
-                    onClick={() => setPorArchivar(item)}
+                    onClick={() => setPorRechazar(item)}
                   >
-                    Archivar
+                    Rechazar
                   </Button>
+                ) : (
+                  item.status !== 'archived' && (
+                    <Button
+                      variante="danger"
+                      tamano="sm"
+                      className="shrink-0"
+                      onClick={() => setPorArchivar(item)}
+                    >
+                      Archivar
+                    </Button>
+                  )
                 )}
               </div>
             </li>
           ))}
         </ul>
+
+        {porRechazar && (
+          <RechazarModal
+            item={porRechazar}
+            onClose={() => setPorRechazar(null)}
+            onHecho={() => {
+              setPorRechazar(null);
+              void queryClient.invalidateQueries({ queryKey: circuitKeys.adminList });
+              void queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+              toast('Propuesta rechazada', 'success');
+            }}
+          />
+        )}
 
         {porArchivar && (
           <Modal title="¿Archivar este circuito?" onClose={() => setPorArchivar(null)}>
@@ -409,5 +452,60 @@ export function AdminPage() {
         )}
       </main>
     </div>
+  );
+}
+
+/**
+ * Rechazo de una propuesta. Pide el motivo porque sin él, dentro de un mes, no hay
+ * forma de saber por qué se descartó ni de responderle a quien la mandó.
+ */
+function RechazarModal({
+  item,
+  onClose,
+  onHecho,
+}: {
+  item: AdminCircuitListItem;
+  onClose: () => void;
+  onHecho: () => void;
+}) {
+  const [motivo, setMotivo] = useState('');
+  const toast = useToast();
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      api.admin.update(item.id, { status: 'rechazado', rejectionReason: motivo.trim() }),
+    onSuccess: onHecho,
+    onError: () => toast('No se pudo rechazar. Reintentá en un rato.'),
+  });
+
+  return (
+    <Modal title="Rechazar esta propuesta" onClose={onClose}>
+      <p className="mb-4 text-sm text-white/80">
+        <strong className="font-semibold text-white">{item.name}</strong> no va a publicarse. Queda
+        guardada con el motivo, así que si alguien la vuelve a proponer vas a saber qué pasó.
+      </p>
+      <Field
+        label="Motivo"
+        id="motivo-rechazo"
+        required
+        maxLength={1000}
+        placeholder="Está repetido, el enlace no anda, queda en propiedad privada…"
+        value={motivo}
+        onChange={(e) => setMotivo(e.target.value)}
+      />
+      <div className="mt-5 flex gap-2">
+        <Button variante="secondary" ancho onClick={onClose}>
+          Cancelar
+        </Button>
+        <Button
+          variante="danger"
+          ancho
+          disabled={motivo.trim() === '' || mutation.isPending}
+          onClick={() => mutation.mutate()}
+        >
+          {mutation.isPending ? 'Rechazando…' : 'Rechazar'}
+        </Button>
+      </div>
+    </Modal>
   );
 }

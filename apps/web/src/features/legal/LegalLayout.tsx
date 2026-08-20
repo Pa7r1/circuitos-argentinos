@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
 /** Fecha de la última revisión de los dos textos. Cambiarla al editarlos. */
-export const VIGENCIA = '14 de agosto de 2026';
+export const VIGENCIA = '17 de agosto de 2026';
 
 export const CONTACTO = 'carpiop997@gmail.com';
 

@@ -215,6 +215,38 @@ export function CircuitForm({ editing, onDone, onSucio = () => {} }: Props) {
       }}
     >
       {/*
+        Quién mandó la propuesta y cómo ubicarlo. Va arriba de todo porque es lo
+        primero que se mira al revisar, y solo existe acá: el contacto no sale ni
+        en la API pública ni en la ficha.
+      */}
+      {editing?.proponente && (
+        <div className="rounded-xl bg-brand-500/10 p-3 ring-1 ring-brand-400/25">
+          <p className="mb-1 text-xs font-semibold tracking-wide text-brand-200 uppercase">
+            Lo propuso
+          </p>
+          <p className="text-sm font-medium text-white">{editing.proponente.name}</p>
+          <p className="mt-0.5 flex flex-wrap gap-x-3 text-sm text-white/70">
+            <a
+              href={`mailto:${editing.proponente.email}`}
+              className="underline-offset-4 hover:text-white hover:underline"
+            >
+              {editing.proponente.email}
+            </a>
+            {editing.proponente.phone && (
+              <a
+                href={`https://wa.me/${editing.proponente.phone.replace(/\D/g, '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline-offset-4 hover:text-white hover:underline"
+              >
+                {editing.proponente.phone}
+              </a>
+            )}
+          </p>
+        </div>
+      )}
+
+      {/*
         Los datos llegan por WhatsApp con la planilla de docs/PLANTILLA-CIRCUITO.md,
         en texto o transcritos de un audio. Pegarlos completa el formulario de una
         vez, en vez de tipear campo por campo; nada se guarda sin revisarlo.

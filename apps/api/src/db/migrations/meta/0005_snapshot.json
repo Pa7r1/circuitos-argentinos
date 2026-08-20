@@ -1,0 +1,699 @@
+{
+  "id": "8fea8131-1ff4-465a-9b4b-a895234fe984",
+  "prevId": "7c39301e-337c-4962-a9c2-95aa1755ac1c",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.circuit_gpx": {
+      "name": "circuit_gpx",
+      "schema": "",
+      "columns": {
+        "circuit_id": {
+          "name": "circuit_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "file_name": {
+          "name": "file_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content": {
+          "name": "content",
+          "type": "bytea",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "circuit_gpx_circuit_id_circuits_id_fk": {
+          "name": "circuit_gpx_circuit_id_circuits_id_fk",
+          "tableFrom": "circuit_gpx",
+          "tableTo": "circuits",
+          "columnsFrom": [
+            "circuit_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.circuit_media": {
+      "name": "circuit_media",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "circuit_id": {
+          "name": "circuit_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "url": {
+          "name": "url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'photo'"
+        },
+        "position": {
+          "name": "position",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "data": {
+          "name": "data",
+          "type": "bytea",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content_type": {
+          "name": "content_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "circuit_media_circuit_id_circuits_id_fk": {
+          "name": "circuit_media_circuit_id_circuits_id_fk",
+          "tableFrom": "circuit_media",
+          "tableTo": "circuits",
+          "columnsFrom": [
+            "circuit_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "circuit_media_kind_check": {
+          "name": "circuit_media_kind_check",
+          "value": "\"circuit_media\".\"kind\" in ('photo','video')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.circuit_schedules": {
+      "name": "circuit_schedules",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "circuit_id": {
+          "name": "circuit_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "day_of_week": {
+          "name": "day_of_week",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "opens": {
+          "name": "opens",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "closes": {
+          "name": "closes",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "circuit_schedules_circuit_id_circuits_id_fk": {
+          "name": "circuit_schedules_circuit_id_circuits_id_fk",
+          "tableFrom": "circuit_schedules",
+          "tableTo": "circuits",
+          "columnsFrom": [
+            "circuit_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "circuit_schedules_day_of_week_check": {
+          "name": "circuit_schedules_day_of_week_check",
+          "value": "\"circuit_schedules\".\"day_of_week\" between 0 and 6"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.circuits": {
+      "name": "circuits",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "discipline_id": {
+          "name": "discipline_id",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "province_id": {
+          "name": "province_id",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "locality": {
+          "name": "locality",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "difficulty": {
+          "name": "difficulty",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "access_type": {
+          "name": "access_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "access_notes": {
+          "name": "access_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'draft'"
+        },
+        "track": {
+          "name": "track",
+          "type": "geography(LineString,4326)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "start_point": {
+          "name": "start_point",
+          "type": "geography(Point,4326)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "distance_m": {
+          "name": "distance_m",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "elevation_gain_m": {
+          "name": "elevation_gain_m",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gpx_url": {
+          "name": "gpx_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "external_map_url": {
+          "name": "external_map_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "contact_phone": {
+          "name": "contact_phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rejection_reason": {
+          "name": "rejection_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "circuits_status_discipline_province_idx": {
+          "name": "circuits_status_discipline_province_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "discipline_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "province_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "circuits_start_point_gist_idx": {
+          "name": "circuits_start_point_gist_idx",
+          "columns": [
+            {
+              "expression": "start_point",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gist",
+          "with": {}
+        },
+        "circuits_track_gist_idx": {
+          "name": "circuits_track_gist_idx",
+          "columns": [
+            {
+              "expression": "track",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gist",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "circuits_discipline_id_disciplines_id_fk": {
+          "name": "circuits_discipline_id_disciplines_id_fk",
+          "tableFrom": "circuits",
+          "tableTo": "disciplines",
+          "columnsFrom": [
+            "discipline_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "circuits_province_id_provinces_id_fk": {
+          "name": "circuits_province_id_provinces_id_fk",
+          "tableFrom": "circuits",
+          "tableTo": "provinces",
+          "columnsFrom": [
+            "province_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "circuits_created_by_users_id_fk": {
+          "name": "circuits_created_by_users_id_fk",
+          "tableFrom": "circuits",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "circuits_slug_unique": {
+          "name": "circuits_slug_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "slug"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "circuits_difficulty_check": {
+          "name": "circuits_difficulty_check",
+          "value": "\"circuits\".\"difficulty\" in ('facil','intermedio','dificil','extremo')"
+        },
+        "circuits_access_type_check": {
+          "name": "circuits_access_type_check",
+          "value": "\"circuits\".\"access_type\" in ('libre','con_permiso','pago')"
+        },
+        "circuits_status_check": {
+          "name": "circuits_status_check",
+          "value": "\"circuits\".\"status\" in ('draft','published','archived','propuesto','rechazado')"
+        },
+        "circuits_track_o_enlace_check": {
+          "name": "circuits_track_o_enlace_check",
+          "value": "\"circuits\".\"track\" is not null or \"circuits\".\"external_map_url\" is not null"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.disciplines": {
+      "name": "disciplines",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "smallserial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "disciplines_slug_unique": {
+          "name": "disciplines_slug_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "slug"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.provinces": {
+      "name": "provinces",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "smallserial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "provinces_slug_unique": {
+          "name": "provinces_slug_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "slug"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "password_hash": {
+          "name": "password_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "discipline_id": {
+          "name": "discipline_id",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'user'"
+        },
+        "oauth_provider": {
+          "name": "oauth_provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "oauth_subject": {
+          "name": "oauth_subject",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reset_token_hash": {
+          "name": "reset_token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reset_expires_at": {
+          "name": "reset_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "terms_accepted_at": {
+          "name": "terms_accepted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "users_discipline_id_disciplines_id_fk": {
+          "name": "users_discipline_id_disciplines_id_fk",
+          "tableFrom": "users",
+          "tableTo": "disciplines",
+          "columnsFrom": [
+            "discipline_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_email_unique": {
+          "name": "users_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "email"
+          ]
+        },
+        "users_oauth_unique": {
+          "name": "users_oauth_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "oauth_provider",
+            "oauth_subject"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "users_role_check": {
+          "name": "users_role_check",
+          "value": "\"users\".\"role\" in ('user','admin')"
+        },
+        "users_credencial_check": {
+          "name": "users_credencial_check",
+          "value": "\"users\".\"password_hash\" is not null or (\"users\".\"oauth_provider\" is not null and \"users\".\"oauth_subject\" is not null)"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

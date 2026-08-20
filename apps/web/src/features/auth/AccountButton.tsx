@@ -58,6 +58,13 @@ export function AccountButton({ onPedirCuenta }: { onPedirCuenta: () => void }) 
                 {session.user.email || 'Administración'}
               </p>
             </div>
+            <Link
+              to="/proponer"
+              onClick={() => setAbierto(false)}
+              className="block px-3 py-2.5 text-sm text-white transition-colors duration-[var(--duracion-rapida)] hover:bg-white/12"
+            >
+              Sumá tu circuito
+            </Link>
             {session.user.role === 'admin' && (
               <Link
                 to="/admin"

@@ -99,7 +99,10 @@ export function authService(repo: AuthRepository) {
       await repo.updatePassword(user.id, await bcrypt.hash(password, 12));
     },
 
-    /** Borra la cuenta. Los circuitos que haya cargado no se tocan: created_by no tiene FK. */
+    /**
+     * Borra la cuenta. Los circuitos que haya propuesto siguen publicados, pero
+     * pierden el vínculo con la persona y su teléfono.
+     */
     async deleteAccount(id: string): Promise<void> {
       await repo.deleteById(id);
     },

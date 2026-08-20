@@ -38,6 +38,13 @@ export function PrivacidadPage() {
           GPX. Ojo: una foto puede mostrar personas o vehículos, y un GPX contiene el recorrido
           exacto de quien lo grabó.
         </li>
+        <li>
+          <strong>Si proponés un circuito</strong>: los datos del circuito, las fotos que subas y
+          un <strong>teléfono de contacto</strong>. El teléfono se usa solo para escribirte si
+          falta algún dato o hay que corregir algo, <strong>no se publica</strong> en el mapa ni
+          en la ficha, y solo lo ve el administrador. Si borrás tu cuenta se elimina; el circuito,
+          si ya se publicó, queda en el mapa sin ningún dato tuyo.
+        </li>
       </ul>
 
       <h2>Tu ubicación</h2>

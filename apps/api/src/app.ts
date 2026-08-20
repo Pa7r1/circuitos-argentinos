@@ -14,6 +14,7 @@ import { authRepository } from './modules/auth/repository.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { authService } from './modules/auth/service.js';
 import { circuitsRepository } from './modules/circuits/repository.js';
+import { propuestasRoutes } from './modules/circuits/propuestas.js';
 import { circuitsRoutes, mediaRoutes } from './modules/circuits/routes.js';
 import { circuitsService } from './modules/circuits/service.js';
 
@@ -108,6 +109,7 @@ export async function buildApp(config: Config, db: Db): Promise<FastifyInstance>
   const adminRepo = adminRepository(db);
   const auth = authService(authRepository(db));
   const circuits = circuitsService(circuitsRepo);
+  const admin = adminService(config, adminRepo, () => auth.countUsers());
 
   const prohibido = () =>
     new DomainError(403, 'PROHIBIDO', 'Necesitás permisos de administrador');
@@ -143,7 +145,10 @@ export async function buildApp(config: Config, db: Db): Promise<FastifyInstance>
       v1.get('/health', async () => ({ status: 'ok' }));
       await v1.register(authRoutes(config, auth), { prefix: '/auth' });
       await v1.register(circuitsRoutes(circuits));
-      await v1.register(adminRoutes(adminService(config, adminRepo, () => auth.countUsers())));
+      // el alta de una propuesta reusa el mismo servicio que el panel: es la misma
+      // tabla con las mismas reglas, solo cambian el estado inicial y el autor
+      await v1.register(propuestasRoutes(config, admin));
+      await v1.register(adminRoutes(admin));
     },
     { prefix: '/api/v1' },
   );

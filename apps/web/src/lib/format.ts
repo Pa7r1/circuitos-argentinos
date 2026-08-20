@@ -64,6 +64,8 @@ export const STATUS_LABEL: Record<CircuitStatus, string> = {
   draft: 'Borrador',
   published: 'Publicado',
   archived: 'Archivado',
+  propuesto: 'Propuesto',
+  rechazado: 'Rechazado',
 };
 
 export const DAY_LABEL = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];

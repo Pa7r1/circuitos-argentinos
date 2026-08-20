@@ -31,6 +31,7 @@ beforeAll(async () => {
     JWT_SECRET: 'secreto-de-test-suficientemente-largo-1234',
     EMAIL_FROM: 'Circuitos <no-responder@ejemplo.com>',
     APP_URL: 'http://localhost:5173',
+    PROPUESTAS_EMAIL: 'admin@test.local',
     // con clave, el correo sale por fetch y el test lo puede interceptar; sin
     // ella el token solo quedaría escrito en el log
     RESEND_API_KEY: 'clave-de-test',

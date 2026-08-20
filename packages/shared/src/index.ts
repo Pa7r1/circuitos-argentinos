@@ -20,7 +20,17 @@ export type Difficulty = (typeof DIFFICULTIES)[number];
 export const ACCESS_TYPES = ['libre', 'con_permiso', 'pago'] as const;
 export type AccessType = (typeof ACCESS_TYPES)[number];
 
-export const CIRCUIT_STATUSES = ['draft', 'published', 'archived'] as const;
+/**
+ * `propuesto` lo manda la comunidad y espera revisión; `rechazado` se revisó y no
+ * entra. Ninguno de los dos aparece en el mapa, que solo muestra `published`.
+ */
+export const CIRCUIT_STATUSES = [
+  'draft',
+  'published',
+  'archived',
+  'propuesto',
+  'rechazado',
+] as const;
 export type CircuitStatus = (typeof CIRCUIT_STATUSES)[number];
 
 // --- Catálogos fijos (fuente única para seed de la API y selects del frontend) ---
@@ -191,6 +201,20 @@ export interface AdminCircuitDetail {
   hasTrack: boolean;
   schedules: CircuitSchedule[];
   media: CircuitMedia[];
+  /** Quién lo propuso. Null en los circuitos que carga el admin. */
+  proponente: Proponente | null;
+  rejectionReason: string | null;
+}
+
+/**
+ * Datos de contacto de quien propuso un circuito. **Solo viajan en el detalle de
+ * /admin**: son datos personales y no salen ni en el mapa ni en la ficha pública.
+ * El teléfono queda en null si la persona borró su cuenta.
+ */
+export interface Proponente {
+  name: string;
+  email: string;
+  phone: string | null;
 }
 
 export interface ScheduleInput {
@@ -232,6 +256,8 @@ export interface CircuitUpdateBody {
   accessType?: AccessType;
   accessNotes?: string | null;
   status?: CircuitStatus;
+  /** Motivo del rechazo; se guarda junto con `status: 'rechazado'`. */
+  rejectionReason?: string | null;
   schedules?: ScheduleInput[];
   externalMapUrl?: string | null;
   /** Se mandan juntos: mover el pin de un circuito cargado con enlace. */

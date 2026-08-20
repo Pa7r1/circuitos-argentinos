@@ -110,14 +110,33 @@ export const circuits = pgTable(
     gpxUrl: text('gpx_url'),
     /** Recorrido publicado en Relive, Strava, Wikiloc… */
     externalMapUrl: text('external_map_url'),
-    createdBy: uuid('created_by'),
+    /*
+     * Quién propuso el circuito. Null en los que carga el admin.
+     *
+     * `on delete set null`: si la persona borra su cuenta, el circuito ya
+     * publicado no se cae con ella. El teléfono, en cambio, sí se borra: es un
+     * dato personal y la política de privacidad promete eliminarlo.
+     */
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    /** Teléfono de quien propuso, para coordinar. Nunca sale de /admin. */
+    contactPhone: text('contact_phone'),
+    /** Por qué se rechazó una propuesta; sirve para no volver a recibir lo mismo. */
+    rejectionReason: text('rejection_reason'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     check('circuits_difficulty_check', sql`${t.difficulty} in ('facil','intermedio','dificil','extremo')`),
     check('circuits_access_type_check', sql`${t.accessType} in ('libre','con_permiso','pago')`),
-    check('circuits_status_check', sql`${t.status} in ('draft','published','archived')`),
+    /*
+     * `propuesto` es lo que manda la comunidad y todavía no se revisó; `rechazado`
+     * es lo que se revisó y no entra. Ninguno de los dos sale en el mapa, que solo
+     * muestra `published`.
+     */
+    check(
+      'circuits_status_check',
+      sql`${t.status} in ('draft','published','archived','propuesto','rechazado')`,
+    ),
     // un circuito tiene que poder mostrar algo: o su trazado o el recorrido de un
     // tercero. Sin esta regla se pueden cargar fichas vacías.
     check(

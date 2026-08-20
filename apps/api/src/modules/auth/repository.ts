@@ -101,8 +101,18 @@ export function authRepository(db: Db) {
       `);
     },
 
+    /**
+     * Borra la cuenta y, con ella, el teléfono que haya dejado al proponer.
+     *
+     * El circuito propuesto sobrevive —`created_by` queda en null por la clave
+     * foránea—, pero el teléfono es un dato personal y la política de privacidad
+     * promete eliminarlo. Va en la misma transacción: media baja no es una baja.
+     */
     async deleteById(userId: string): Promise<void> {
-      await db.execute(sql`DELETE FROM users WHERE id = ${userId}`);
+      await db.transaction(async (tx) => {
+        await tx.execute(sql`UPDATE circuits SET contact_phone = NULL WHERE created_by = ${userId}`);
+        await tx.execute(sql`DELETE FROM users WHERE id = ${userId}`);
+      });
     },
 
     /**

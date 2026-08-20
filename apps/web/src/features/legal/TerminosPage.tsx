@@ -129,7 +129,28 @@ export function TerminosPage() {
         </li>
       </ol>
 
-      <h2>9. Contenido de terceros</h2>
+      <h2>9. Circuitos que proponés</h2>
+      <ol start={15}>
+        <li>
+          Si proponés un circuito, tiene que ser información tuya o que puedas compartir, y las
+          fotos tenés que haberlas sacado vos o tener permiso para publicarlas. No subas fotos con
+          personas identificables sin que estén de acuerdo.
+        </li>
+        <li>
+          Al proponerlo, nos autorizás a publicarlo en el mapa, a corregirlo y a mostrarlo junto al
+          resto del contenido del sitio. Podés pedir que lo saquemos escribiéndonos.
+        </li>
+        <li>
+          Nada se publica automáticamente: revisamos cada propuesta y podemos no publicarla, sin
+          que eso implique ningún juicio sobre el circuito ni sobre vos.
+        </li>
+        <li>
+          No propongas lugares a los que no se pueda entrar, ni de propiedad privada sin permiso
+          de quien corresponda.
+        </li>
+      </ol>
+
+      <h2>10. Contenido de terceros</h2>
       <p>
         Las imágenes satelitales son de Esri, Maxar y Earthstar Geographics; el mapa de calles es
         de OpenStreetMap y quienes colaboran con él; la búsqueda de localidades usa la API Georef
@@ -137,19 +158,19 @@ export function TerminosPage() {
         My Maps pertenecen a esos servicios y a sus autores, y se rigen por sus propios términos.
       </p>
 
-      <h2>10. Cambios</h2>
+      <h2>11. Cambios</h2>
       <p>
         Estos términos pueden cambiar. La fecha de arriba indica la última revisión; seguir usando
         el sitio después de un cambio implica aceptarlo.
       </p>
 
-      <h2>11. Ley aplicable</h2>
+      <h2>12. Ley aplicable</h2>
       <p>
         Se aplica la legislación de la República Argentina. Cualquier controversia se somete a los
         tribunales ordinarios competentes de la Provincia de La Rioja.
       </p>
 
-      <h2>12. Contacto</h2>
+      <h2>13. Contacto</h2>
       <p>
         Por cualquier consulta sobre estos términos, escribinos a{' '}
         <a href={`mailto:${CONTACTO}`}>{CONTACTO}</a>.

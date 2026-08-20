@@ -24,6 +24,11 @@ export interface CircuitInsert {
   elevationGainM: number | null;
   gpxUrl: string | null;
   externalMapUrl: string | null;
+  /** `draft` cuando lo carga el admin, `propuesto` cuando llega de la comunidad. */
+  status: string;
+  /** Quién lo propuso; null en las altas del panel. */
+  createdBy: string | null;
+  contactPhone: string | null;
   schedules: ScheduleInput[];
 }
 
@@ -43,6 +48,7 @@ export interface CircuitUpdateSets {
   elevationGainM?: number | null;
   gpxUrl?: string;
   externalMapUrl?: string | null;
+  rejectionReason?: string | null;
   schedules?: ScheduleInput[];
 }
 
@@ -87,16 +93,37 @@ export function adminRepository(db: Db) {
       return rows[0] ?? null;
     },
 
+    /** Quién lo propuso y en qué estado está: lo que hace falta para autorizar una foto. */
+    async ownerOf(id: string): Promise<{ createdBy: string | null; status: string } | null> {
+      const rows = (await db.execute(
+        sql`SELECT created_by, status FROM circuits WHERE id = ${id}`,
+      )) as unknown as { created_by: string | null; status: string }[];
+      const row = rows[0];
+      return row ? { createdBy: row.created_by, status: row.status } : null;
+    },
+
+    async countMedia(circuitId: string): Promise<number> {
+      const rows = (await db.execute(
+        sql`SELECT count(*)::int AS total FROM circuit_media WHERE circuit_id = ${circuitId}`,
+      )) as unknown as { total: number }[];
+      return rows[0]?.total ?? 0;
+    },
+
     async fullById(id: string): Promise<AdminCircuitDetail | null> {
       const rows = (await db.execute(sql`
         SELECT c.id, c.slug, c.name, c.description, d.slug AS discipline, p.slug AS province,
                c.locality, c.difficulty, c.access_type, c.access_notes, c.status,
                c.distance_m, c.elevation_gain_m, c.external_map_url,
+               c.contact_phone, c.rejection_reason,
                ST_AsGeoJSON(c.start_point) AS start_point,
-               c.track IS NOT NULL AS has_track
+               c.track IS NOT NULL AS has_track,
+               u.name AS proponente_name, u.email AS proponente_email
         FROM circuits c
         JOIN disciplines d ON d.id = c.discipline_id
         JOIN provinces p ON p.id = c.province_id
+        -- LEFT: los circuitos que carga el admin no tienen proponente, y los de
+        -- alguien que borró su cuenta tampoco (created_by queda en null)
+        LEFT JOIN users u ON u.id = c.created_by
         WHERE c.id = ${id}
       `)) as unknown as Record<string, unknown>[];
       const row = rows[0];
@@ -128,6 +155,15 @@ export function adminRepository(db: Db) {
         externalMapUrl: row.external_map_url as string | null,
         startPoint: JSON.parse(row.start_point as string) as GeoJsonPoint,
         hasTrack: row.has_track as boolean,
+        // el contacto solo existe si el circuito lo propuso alguien con cuenta viva
+        proponente: row.proponente_email
+          ? {
+              name: row.proponente_name as string,
+              email: row.proponente_email as string,
+              phone: row.contact_phone as string | null,
+            }
+          : null,
+        rejectionReason: row.rejection_reason as string | null,
         schedules: schedules.map((s) => ({
           dayOfWeek: s.day_of_week,
           opens: s.opens?.slice(0, 5) ?? null,
@@ -167,12 +203,12 @@ export function adminRepository(db: Db) {
         const rows = (await tx.execute(sql`
           INSERT INTO circuits
             (slug, name, description, discipline_id, province_id, locality, difficulty,
-             access_type, access_notes, status, track, start_point, distance_m,
-             elevation_gain_m, gpx_url, external_map_url)
+             access_type, access_notes, status, created_by, contact_phone, track,
+             start_point, distance_m, elevation_gain_m, gpx_url, external_map_url)
           VALUES
             (${data.slug}, ${data.name}, ${data.description}, ${data.disciplineId},
              ${data.provinceId}, ${data.locality}, ${data.difficulty}, ${data.accessType},
-             ${data.accessNotes}, 'draft',
+             ${data.accessNotes}, ${data.status}, ${data.createdBy}, ${data.contactPhone},
              -- ST_GeogFromText(NULL) es NULL, así que el circuito sin GPX entra igual
              ST_GeogFromText(${data.trackWkt}),
              ST_GeogFromText(${data.startWkt}), ${data.distanceM}, ${data.elevationGainM},
@@ -201,6 +237,7 @@ export function adminRepository(db: Db) {
         ['elevationGainM', sql`elevation_gain_m = ${sets.elevationGainM}`],
         ['gpxUrl', sql`gpx_url = ${sets.gpxUrl}`],
         ['externalMapUrl', sql`external_map_url = ${sets.externalMapUrl}`],
+        ['rejectionReason', sql`rejection_reason = ${sets.rejectionReason}`],
       ];
       for (const [key, fragment] of map) {
         if (sets[key] !== undefined) fragments.push(fragment);

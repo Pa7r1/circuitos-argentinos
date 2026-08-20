@@ -4,7 +4,7 @@ import type {
   CircuitUpdateBody,
 } from '@circuitos/shared';
 import type { Config } from '../../config.js';
-import { badRequest, notFound } from '../../lib/errors.js';
+import { badRequest, DomainError, notFound } from '../../lib/errors.js';
 import { processGpx, trackToWkt } from '../../lib/gpx.js';
 import { uniqueSlug } from '../../lib/slug.js';
 import type { AdminRepository, CircuitUpdateSets } from './repository.js';
@@ -35,6 +35,9 @@ export interface AdminStats {
   users: number;
 }
 
+/** Tope de fotos por propuesta: suficiente para mostrar el lugar, sin volverse un álbum. */
+const MAX_FOTOS_PROPUESTA = 3;
+
 export function adminService(
   config: Config,
   repo: AdminRepository,
@@ -56,6 +59,22 @@ export function adminService(
       result.provinceId = id;
     }
     return result;
+  }
+
+  /** Guarda una foto ya validada como imagen y devuelve su URL pública. */
+  async function guardarFoto(id: string, file: Buffer): Promise<{ url: string }> {
+    const existing = await repo.findById(id);
+    if (!existing) throw notFound('Circuito no encontrado');
+
+    const type = IMAGE_TYPES.find((t) => t.matches(file));
+    if (!type) {
+      throw badRequest('IMAGEN_INVALIDA', 'Solo se aceptan imágenes JPEG, PNG o WebP');
+    }
+
+    const fileName = `${Date.now()}.${type.ext}`;
+    const url = `/media/${id}/${fileName}`;
+    await repo.addMedia(id, url, 'photo', file, type.mime);
+    return { url };
   }
 
   return {
@@ -90,9 +109,19 @@ export function adminService(
      * carga el administrador: son justo los datos que el archivo aportaba, y desde
      * Relive o Strava no se puede exportar.
      */
+    /**
+     * Alta de un circuito. `origen` distingue las dos puertas de entrada: el panel
+     * crea borradores propios, y la comunidad propone circuitos que esperan
+     * revisión. El estado y el autor **nunca** salen del cuerpo del pedido.
+     */
     async create(
       fields: CircuitCreateFields,
       gpxBuffer: Buffer | null,
+      origen: { status: string; createdBy: string | null; contactPhone: string | null } = {
+        status: 'draft',
+        createdBy: null,
+        contactPhone: null,
+      },
     ): Promise<{ id: string; slug: string }> {
       const { disciplineId, provinceId } = await resolveRefs(fields.discipline, fields.province);
       const slug = await uniqueSlug(fields.name, (s) => repo.slugExists(s));
@@ -116,6 +145,9 @@ export function adminService(
         elevationGainM: gpx?.elevationGainM ?? fields.elevationGainM ?? null,
         gpxUrl: gpxBuffer ? gpxDownloadUrl(slug) : null,
         externalMapUrl: fields.externalMapUrl ?? null,
+        status: origen.status,
+        createdBy: origen.createdBy,
+        contactPhone: origen.contactPhone,
         schedules: fields.schedules ?? [],
       });
 
@@ -137,6 +169,7 @@ export function adminService(
         accessType: body.accessType,
         accessNotes: body.accessNotes,
         status: body.status,
+        rejectionReason: body.rejectionReason,
         schedules: body.schedules,
         externalMapUrl: body.externalMapUrl,
         distanceM: body.distanceM,
@@ -175,19 +208,25 @@ export function adminService(
       await repo.update(id, { status: 'archived' });
     },
 
-    async addMedia(id: string, file: Buffer): Promise<{ url: string }> {
-      const existing = await repo.findById(id);
-      if (!existing) throw notFound('Circuito no encontrado');
+    addMedia: guardarFoto,
 
-      const type = IMAGE_TYPES.find((t) => t.matches(file));
-      if (!type) {
-        throw badRequest('IMAGEN_INVALIDA', 'Solo se aceptan imágenes JPEG, PNG o WebP');
+    /**
+     * Foto sobre una propuesta propia y todavía sin revisar.
+     *
+     * Las dos condiciones importan: sin la de dueño, cualquiera con cuenta le
+     * agrega fotos a un circuito ajeno sabiendo su id; sin la de estado, podría
+     * seguir editando el circuito después de que vos lo publicaste.
+     */
+    async addMediaDePropuesta(id: string, userId: string, file: Buffer): Promise<{ url: string }> {
+      const duenio = await repo.ownerOf(id);
+      if (!duenio) throw notFound('Circuito no encontrado');
+      if (duenio.status !== 'propuesto' || duenio.createdBy !== userId) {
+        throw new DomainError(403, 'PROHIBIDO', 'Esa propuesta no es tuya');
       }
-
-      const fileName = `${Date.now()}.${type.ext}`;
-      const url = `/media/${id}/${fileName}`;
-      await repo.addMedia(id, url, 'photo', file, type.mime);
-      return { url };
+      if ((await repo.countMedia(id)) >= MAX_FOTOS_PROPUESTA) {
+        throw badRequest('DEMASIADAS_FOTOS', `Podés subir hasta ${MAX_FOTOS_PROPUESTA} fotos`);
+      }
+      return guardarFoto(id, file);
     },
   };
 }

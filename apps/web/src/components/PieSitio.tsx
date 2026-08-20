@@ -38,6 +38,9 @@ export function PieSitio({ className = '' }: { className?: string }) {
         del mapa se dibujaba a 12 px y el texto se partía en dos líneas.
       */}
       <div className={`flex flex-wrap items-center gap-x-4 ${className}`}>
+        <Link to="/proponer" className={ENLACE}>
+          Sumá tu circuito
+        </Link>
         <Link to="/terminos" className={ENLACE}>
           Términos
         </Link>

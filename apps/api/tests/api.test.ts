@@ -57,6 +57,7 @@ beforeAll(async () => {
     JWT_SECRET: 'secreto-de-test-suficientemente-largo-1234',
     EMAIL_FROM: 'Circuitos <no-responder@ejemplo.com>',
     APP_URL: 'http://localhost:5173',
+    PROPUESTAS_EMAIL: 'admin@test.local',
   };
 
   const created = createDb(testUrl);

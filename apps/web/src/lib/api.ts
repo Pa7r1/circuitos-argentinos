@@ -117,6 +117,20 @@ export const api = {
     return res.blob();
   },
 
+  /** Circuito propuesto por alguien con cuenta. Queda esperando revisión en /admin. */
+  proponerCircuito(form: FormData): Promise<{ id: string; slug: string }> {
+    return request('/circuits/propuestas', { method: 'POST', headers: authHeaders(), body: form });
+  },
+
+  /** Foto de una propuesta propia. Van de a una: el multipart admite un archivo por pedido. */
+  subirFotoPropuesta(id: string, form: FormData): Promise<void> {
+    return request(`/circuits/propuestas/${id}/media`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: form,
+    });
+  },
+
   admin: {
     list(): Promise<AdminCircuitListItem[]> {
       return request('/admin/circuits', { headers: authHeaders() });
