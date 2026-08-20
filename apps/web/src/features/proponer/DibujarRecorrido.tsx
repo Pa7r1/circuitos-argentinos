@@ -25,14 +25,22 @@ const METROS_POR_PUNTO_GRUESO = 600;
  * apunta a achicar esa diferencia y, sobre todo, a que se **vea** cuánta hay: los
  * vértices se arrastran para corregir y la distancia se actualiza a cada toque, que
  * es la señal honesta de si el trazo se parece al recorrido real.
+ *
+ * Ocupa todo el alto que le dé el padre y **nada de acá adentro empuja contenido**:
+ * el buscador, la barra de herramientas y los avisos flotan encima del mapa. Si
+ * vivieran debajo, la página tendría scroll y arrastrar para mover el mapa
+ * terminaría desplazando la página en vez del mapa.
  */
 export function DibujarRecorrido({
   puntos,
   onChange,
+  className = '',
 }: {
   /** En orden GeoJSON `[lon, lat]`, como toda la API. */
   puntos: PuntoLonLat[];
   onChange: (puntos: PuntoLonLat[]) => void;
+  /** El padre manda el alto; acá adentro el mapa lo ocupa entero. */
+  className?: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
@@ -55,7 +63,17 @@ export function DibujarRecorrido({
   useEffect(() => {
     if (!L) return;
     const map = L.map(containerRef.current!, MAP_OPTIONS);
-    map.setView(LA_RIOJA, 9);
+    // al volver del paso siguiente el componente se remonta: si arrancara siempre
+    // en la vista por defecto, el trazo ya marcado quedaría fuera de pantalla
+    const yaMarcados = puntosRef.current;
+    if (yaMarcados.length > 0) {
+      map.fitBounds(
+        yaMarcados.map(([lon, lat]) => [lat, lon] as [number, number]),
+        { padding: [48, 48] },
+      );
+    } else {
+      map.setView(LA_RIOJA, 9);
+    }
     createBaseLayers(L, map, 'satelite');
 
     map.on('click', (e: { latlng: { lat: number; lng: number } }) => {
@@ -70,7 +88,6 @@ export function DibujarRecorrido({
       lineaRef.current = null;
       marcadoresRef.current = [];
     };
-
   }, [L]);
 
   /*
@@ -127,8 +144,25 @@ export function DibujarRecorrido({
   const km = (metros / 1000).toFixed(1).replace('.', ',');
 
   return (
-    <div>
-      <div className="mb-2">
+    <div className={`relative ${className}`}>
+      {/* `z-0` no es decorativo: un z-index numérico crea contexto de apilado y
+          encierra los panes de Leaflet acá adentro, debajo de lo que flota. */}
+      <div
+        ref={containerRef}
+        className="absolute inset-0 z-0 rounded-xl bg-stone-800 ring-1 ring-white/10"
+        aria-label="Mapa para dibujar el recorrido"
+      />
+
+      {/*
+        z-30, por encima de la barra: el desplegable de resultados la tapa a ella y
+        no al revés.
+
+        La cápsula `flotante` no es decorativa: el campo de PlaceSearch es blanco al
+        10 % sin desenfoque, pensado para vivir dentro de un panel oscuro como en el
+        mapa principal. Suelto sobre la foto satelital, encima de un arenal, el texto
+        quedaba ilegible.
+      */}
+      <div className="flotante absolute inset-x-2 top-2 z-30 rounded-2xl p-1.5">
         <PlaceSearch
           selected={place}
           onSelect={(p) => {
@@ -141,64 +175,64 @@ export function DibujarRecorrido({
         />
       </div>
 
-      <div
-        ref={containerRef}
-        className="h-72 w-full rounded-xl bg-stone-800 ring-1 ring-white/10 sm:h-96"
-        aria-label="Mapa para dibujar el recorrido"
-      />
+      <div className="pointer-events-none absolute inset-x-2 bottom-2 z-20 space-y-2">
+        {grueso && (
+          <p className="flotante pointer-events-auto rounded-xl px-3 py-2 text-sm text-amber-200">
+            El trazo va bastante derecho para los kilómetros que abarca. Si el camino curva, marcá
+            más seguido: así la distancia se parece a la real.
+          </p>
+        )}
+        {puntos.length >= MAX_PUNTOS && (
+          <p className="flotante pointer-events-auto rounded-xl px-3 py-2 text-sm text-amber-200">
+            Llegaste al máximo de {MAX_PUNTOS} puntos. Con eso alcanza de sobra.
+          </p>
+        )}
 
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <p className="mr-auto text-sm text-white/70" aria-live="polite">
-          {puntos.length === 0 ? (
-            'Buscá la zona, acercá el mapa y tocá siguiendo el recorrido.'
-          ) : (
-            <>
-              <strong className="font-semibold text-white tabular-nums">{km} km</strong>
-              <span className="text-white/55"> · {puntos.length} puntos</span>
-            </>
+        <div className="flotante pointer-events-auto space-y-2 rounded-xl p-2">
+          <p className="px-1 text-sm text-white/75" aria-live="polite">
+            {puntos.length === 0 ? (
+              'Buscá la zona, acercá el mapa y tocá siguiendo el recorrido. El punto verde es el arranque y cualquier punto se puede arrastrar.'
+            ) : (
+              <>
+                <strong className="font-semibold text-white tabular-nums">{km} km</strong>
+                <span className="text-white/60"> · {puntos.length} puntos marcados</span>
+                <span className="text-white/60"> · arrastrá un punto para corregirlo</span>
+              </>
+            )}
+          </p>
+          {/* mientras no hay nada marcado, tres botones apagados solo tapan mapa */}
+          {puntos.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variante="secondary"
+                tamano="sm"
+                disabled={puntos.length === 0}
+                onClick={() => onChange(puntos.slice(0, -1))}
+              >
+                Deshacer
+              </Button>
+              <Button
+                variante="secondary"
+                tamano="sm"
+                disabled={puntos.length < 3}
+                onClick={() => onChange([...puntos, puntos[0]!])}
+                title="Vuelve al punto de arranque"
+              >
+                Cerrar la vuelta
+              </Button>
+              <Button
+                variante="danger"
+                tamano="sm"
+                className="ml-auto"
+                disabled={puntos.length === 0}
+                onClick={() => onChange([])}
+              >
+                Borrar todo
+              </Button>
+            </div>
           )}
-        </p>
-        <Button
-          variante="secondary"
-          tamano="sm"
-          disabled={puntos.length === 0}
-          onClick={() => onChange(puntos.slice(0, -1))}
-        >
-          Deshacer
-        </Button>
-        <Button
-          variante="secondary"
-          tamano="sm"
-          disabled={puntos.length < 3}
-          onClick={() => onChange([...puntos, puntos[0]!])}
-          title="Vuelve al punto de arranque"
-        >
-          Cerrar la vuelta
-        </Button>
-        <Button
-          variante="danger"
-          tamano="sm"
-          disabled={puntos.length === 0}
-          onClick={() => onChange([])}
-        >
-          Borrar
-        </Button>
+        </div>
       </div>
-
-      {grueso && (
-        <p className="mt-2 text-sm text-amber-300">
-          El trazo va bastante derecho para los kilómetros que abarca. Si el camino curva, marcá
-          más seguido: así la distancia se parece a la real.
-        </p>
-      )}
-      {puntos.length >= MAX_PUNTOS && (
-        <p className="mt-2 text-sm text-amber-300">
-          Llegaste al máximo de {MAX_PUNTOS} puntos. Con eso alcanza de sobra.
-        </p>
-      )}
-      <p className="mt-2 text-xs text-white/55">
-        El punto verde es el arranque. Podés arrastrar cualquier punto para corregirlo.
-      </p>
     </div>
   );
 }

@@ -66,7 +66,9 @@ export function LocationPicker({
   return (
     <div>
       <p className="mb-1.5 block text-sm font-medium text-white/80">Dónde arranca el circuito *</p>
-      <div className="mb-2 flex items-center gap-2">
+      {/* z-10 explícito: sin él, el desplegable de resultados compite contra los
+          panes de Leaflet (z-index 400) y pierde. */}
+      <div className="relative z-10 mb-2 flex items-center gap-2">
         <PlaceSearch
           selected={place}
           onSelect={(p) => {
@@ -76,9 +78,11 @@ export function LocationPicker({
           onClear={() => setPlace(null)}
         />
       </div>
+      {/* `z-0` no es decorativo: un z-index numérico crea contexto de apilado y
+          encierra los panes de Leaflet acá adentro, debajo del buscador. */}
       <div
         ref={containerRef}
-        className="h-64 w-full rounded-xl bg-stone-800 ring-1 ring-white/10"
+        className="relative z-0 h-64 w-full rounded-xl bg-stone-800 ring-1 ring-white/10"
         aria-label="Mapa para marcar el punto de partida"
       />
       <p className="mt-1.5 text-xs text-white/55">

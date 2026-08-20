@@ -12,8 +12,10 @@ import { useId, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttribu
  * `text-base` (16 px) no es capricho: por debajo de eso, Safari en iPhone hace zoom
  * automático al tocar el campo y descoloca toda la pantalla.
  */
+/* `scroll-mb-28` deja aire bajo el campo al enfocarlo: sin eso el navegador lo
+   sube justo pegado al borde inferior, debajo de la barra fija del asistente. */
 const CONTROL =
-  'min-h-11 w-full rounded-xl bg-white/8 px-3 py-2.5 text-base text-white ring-1 transition-[background-color,box-shadow] duration-[var(--duracion-rapida)] ease-suave placeholder:text-white/40 focus:bg-white/12 focus:outline-none';
+  'scroll-mb-28 min-h-11 w-full rounded-xl bg-white/8 px-3 py-2.5 text-base text-white ring-1 transition-[background-color,box-shadow] duration-[var(--duracion-rapida)] ease-suave placeholder:text-white/40 focus:bg-white/12 focus:outline-none';
 
 const borde = (error?: string) =>
   error

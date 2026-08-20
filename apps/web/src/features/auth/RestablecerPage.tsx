@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button, ButtonLink } from '../../components/Button';
 import { Field, VerPassword } from '../../components/Field';
-import { api, RequestError } from '../../lib/api';
+import { api, mensajeParaPersona } from '../../lib/api';
 
 /**
  * Pantalla a la que lleva el enlace del correo. El token viaja en el query string
@@ -23,12 +23,7 @@ export function RestablecerPage() {
 
   const mutation = useMutation({
     mutationFn: () => api.resetPassword(token, password),
-    onError: (e) =>
-      setError(
-        e instanceof RequestError
-          ? e.message
-          : 'No pudimos cambiar la contraseña. Reintentá en un momento.',
-      ),
+    onError: (e) => setError(mensajeParaPersona(e)),
   });
 
   return (

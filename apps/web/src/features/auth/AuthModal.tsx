@@ -5,7 +5,7 @@ import { DISCIPLINES } from '@circuitos/shared';
 import { Button } from '../../components/Button';
 import { Field, SelectField, VerPassword } from '../../components/Field';
 import { Modal } from '../../components/Modal';
-import { api, RequestError } from '../../lib/api';
+import { api, mensajeParaPersona } from '../../lib/api';
 import { setSession } from '../../lib/session';
 
 type Solapa = 'registro' | 'ingreso';
@@ -40,11 +40,7 @@ export function AuthModal({
   const [enviado, setEnviado] = useState(false);
 
   const alFallar = (e: unknown) => {
-    setError(
-      e instanceof RequestError
-        ? e.message
-        : 'No pudimos completar la operación. Reintentá en un momento.',
-    );
+    setError(mensajeParaPersona(e));
   };
 
   const mutation = useMutation({

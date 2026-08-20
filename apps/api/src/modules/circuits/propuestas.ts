@@ -111,8 +111,14 @@ export function propuestasRoutes(config: Config, service: AdminService) {
          * comprobación, cualquiera con cuenta podría pegarle fotos a un circuito
          * publicado ajeno con solo saber su id.
          */
-        await service.addMediaDePropuesta(request.params.id, request.user.sub, file);
-        return reply.status(201).send();
+        const result = await service.addMediaDePropuesta(request.params.id, request.user.sub, file);
+        /*
+         * El cuerpo va sí o sí: el cliente trata una respuesta sin JSON (que no sea
+         * 204) como un build sin VITE_API_URL y falla con un mensaje que no tiene
+         * nada que ver. Además la `url` es lo que la vista necesita para mostrar la
+         * foto recién subida.
+         */
+        return reply.status(201).send(result);
       },
     );
   };

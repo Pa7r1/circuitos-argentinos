@@ -21,9 +21,43 @@ export class RequestError extends Error {
     public readonly statusCode: number,
     public readonly code: string,
     message: string,
+    /** El mensaje lo escribió el servidor para leerse; los inventados acá, no. */
+    public readonly delServidor = false,
   ) {
     super(message);
   }
+}
+
+/**
+ * Qué se le muestra a la persona cuando algo falla.
+ *
+ * Los errores de dominio ya vienen del servidor redactados en criollo ("Dejanos un
+ * teléfono para poder contactarte") y se muestran tal cual. Todo lo demás —códigos
+ * internos, fallos de red, respuestas raras— se traduce por familia: quien está
+ * cargando un circuito no tiene por qué leer RESPUESTA_NO_JSON, y en producción no
+ * queremos filtrar nada técnico. El detalle va a la consola, que es donde sirve.
+ */
+export function mensajeParaPersona(error: unknown): string {
+  console.error(error);
+  const generico = 'Algo salió mal. Probá de nuevo en un rato.';
+
+  // fetch solo rechaza con TypeError cuando el pedido ni siquiera llegó: sin
+  // internet, o la API dormida (Render gratis se apaga a los 15 minutos)
+  if (error instanceof TypeError) {
+    return 'No pudimos conectarnos. Fijate si tenés internet; si recién abrís la app, el servidor puede estar despertando y tarda hasta un minuto.';
+  }
+  if (!(error instanceof RequestError)) return generico;
+
+  if (error.statusCode === 401) return 'Se venció tu sesión. Ingresá de nuevo y reintentá.';
+  if (error.statusCode === 413) {
+    return 'El archivo pesa demasiado. El máximo son 5 MB: probá con una foto más chica.';
+  }
+  if (error.statusCode === 429) return 'Fueron muchos intentos seguidos. Esperá un minuto.';
+  if (error.code === 'VALIDACION') return 'Revisá los datos: alguno quedó incompleto o mal cargado.';
+  if (error.statusCode >= 500 || error.code === 'RESPUESTA_NO_JSON') {
+    return 'El servidor no está respondiendo bien. Probá de nuevo en un minuto.';
+  }
+  return error.delServidor ? error.message : generico;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -40,6 +74,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       res.status,
       error?.code ?? 'ERROR',
       error?.message ?? `Error ${res.status}`,
+      error?.message !== undefined,
     );
   }
   if (res.status === 204) return undefined as T;
@@ -123,7 +158,7 @@ export const api = {
   },
 
   /** Foto de una propuesta propia. Van de a una: el multipart admite un archivo por pedido. */
-  subirFotoPropuesta(id: string, form: FormData): Promise<void> {
+  subirFotoPropuesta(id: string, form: FormData): Promise<{ url: string }> {
     return request(`/circuits/propuestas/${id}/media`, {
       method: 'POST',
       headers: authHeaders(),

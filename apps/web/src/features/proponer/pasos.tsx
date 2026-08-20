@@ -1,7 +1,18 @@
 import type { ReactNode } from 'react';
 
-/** Los cuatro tramos del asistente, en orden. */
-export const PASOS = ['El recorrido', 'Dónde queda', 'Cómo es', 'Fotos y contacto'] as const;
+/**
+ * Los cinco tramos del asistente, en orden.
+ *
+ * Elegir la vía y cargar el recorrido son pasos distintos a propósito: cuando eran
+ * uno solo, el mapa para dibujar entraba apretado debajo de las tres tarjetas.
+ */
+export const PASOS = [
+  'Cómo nos lo pasás',
+  'El recorrido',
+  'Dónde queda',
+  'Cómo es',
+  'Fotos y contacto',
+] as const;
 
 /**
  * Barra de progreso del asistente.
