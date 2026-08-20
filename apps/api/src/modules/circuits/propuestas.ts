@@ -30,6 +30,14 @@ import type { AdminService } from '../admin/service.js';
  */
 const RATE_LIMIT_PROPUESTAS = { config: { rateLimit: { max: 5, timeWindow: '1 day' } } };
 
+/**
+ * Las fotos van de a un pedido, así que el límite de las altas no les sirve: con el
+ * mismo cubo de cinco, el primer circuito con sus tres fotos se comía casi todo el
+ * día y al segundo le empezaban a fallar. Cinco propuestas por tres fotos cada una
+ * son quince, que es el techo que corresponde a lo que ya se permite cargar.
+ */
+const RATE_LIMIT_FOTOS = { config: { rateLimit: { max: 15, timeWindow: '1 day' } } };
+
 /** Lo mínimo para poder devolver el llamado: no se valida el formato, que varía. */
 const telefonoSchema = z.string().trim().min(6, 'teléfono demasiado corto').max(40);
 
@@ -98,7 +106,7 @@ export function propuestasRoutes(config: Config, service: AdminService) {
       '/circuits/propuestas/:id/media',
       {
         onRequest: app.requireUser,
-        ...RATE_LIMIT_PROPUESTAS,
+        ...RATE_LIMIT_FOTOS,
         schema: { params: z.object({ id: z.uuid() }) },
       },
       async (request, reply) => {
