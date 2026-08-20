@@ -16,6 +16,7 @@ import { CompartirModal } from '../../components/CompartirModal';
 import { textoCompartir } from '../../lib/compartir';
 import { ExternalMapEmbed } from '../../components/ExternalMapEmbed';
 import { MapLayerToggle } from '../../components/MapLayerToggle';
+import { IconoCompartir, IconoDescargar } from '../../components/map-icons';
 import { PieSitio } from '../../components/PieSitio';
 import { TRACK_CASING, TRACK_COLOR, type MapLayer } from '../../lib/map-style';
 import { useCircuitDetail } from '../../lib/queries';
@@ -71,7 +72,6 @@ function TrackMap({ circuit, track }: { circuit: CircuitDetail; track: GeoJsonLi
       map.remove();
       applyLayerRef.current = null;
     };
-
   }, [circuit, track, L]);
 
   return (
@@ -84,7 +84,11 @@ function TrackMap({ circuit, track }: { circuit: CircuitDetail; track: GeoJsonLi
         aria-label={`Trazado del circuito ${circuit.name}`}
         data-tour="trazado"
       />
-      <MapLayerToggle layer={layer} onChange={setLayer} className="absolute bottom-3 left-3 z-[500]" />
+      <MapLayerToggle
+        layer={layer}
+        onChange={setLayer}
+        className="absolute bottom-3 left-3 z-[500]"
+      />
     </div>
   );
 }
@@ -392,9 +396,7 @@ export function CircuitPage() {
                 <tbody>
                   {circuit.schedules.map((s, i) => (
                     <tr key={i} className="border-b border-white/8 last:border-0">
-                      <td className="py-2.5 font-medium text-white/90">
-                        {DAY_LABEL[s.dayOfWeek]}
-                      </td>
+                      <td className="py-2.5 font-medium text-white/90">{DAY_LABEL[s.dayOfWeek]}</td>
                       <td className="py-2.5 text-right tabular-nums sm:text-left">
                         {s.opens && s.closes ? `${s.opens} a ${s.closes}` : 'Consultar'}
                       </td>
@@ -567,8 +569,27 @@ function Dato({ etiqueta, valor }: { etiqueta: string; valor: string }) {
  * Las dos acciones de la ficha. Se usan en dos lugares —la tarjeta lateral en
  * escritorio y la barra fija en teléfono— y por eso viven en un componente: eran la
  * misma botonera copiada, y una copia siempre se termina desviando de la otra.
+ *
+ * Los tres botones no entran en un renglón en ninguno de los dos lugares. En
+ * escritorio la columna deja 280 px menos el `px-5` de la tarjeta, o sea 136 px por
+ * mitad; en un teléfono de 360 px, la barra fija deja 328 px. La botonera con los
+ * tres textos pedía ~338 px, así que el que cedía era el que tiene el ancho
+ * completo: "Cómo llegar" se partía en dos renglones.
+ *
+ * La salida es distinta en cada lado, porque el problema es distinto:
+ * - Escritorio: dos filas. "Cómo llegar" arriba y a todo el ancho —es la acción
+ *   principal, gana en jerarquía— y las dos secundarias abajo al 50/50. Sin GPX,
+ *   "Compartir" se queda con la fila entera en vez de dejar un hueco.
+ * - Teléfono: un solo renglón, para no engordar la barra fija, y las secundarias se
+ *   quedan sin texto. Con ícono ocupan ~60 px cada una y "Cómo llegar" recupera el
+ *   ancho que necesita.
+ *
+ * El texto de las secundarias no se dibuja en teléfono, así que el nombre accesible
+ * lo tiene que dar el `aria-label`: sin él, un lector de pantalla anuncia un botón
+ * sin nombre. Por eso el de GPX ahora también lo lleva, con el mismo texto que su
+ * `title`.
  */
-function Acciones({
+export function Acciones({
   directionsUrl,
   hasGpx,
   onDescargar,
@@ -581,20 +602,32 @@ function Acciones({
   onCompartir: () => void;
   oscuro?: boolean;
 }) {
+  // clases completas y no interpoladas: Tailwind escanea texto, un fragmento armado
+  // en tiempo de ejecución no genera CSS
+  const secundario = oscuro ? 'text-white hover:bg-white/15' : '';
+
   return (
-    <div data-tour="acciones" className="flex gap-2">
-      <ButtonLink to={directionsUrl} variante="primary" tamano="lg" ancho>
+    <div data-tour="acciones" className="flex gap-2 lg:grid lg:grid-cols-2">
+      <ButtonLink
+        to={directionsUrl}
+        variante="primary"
+        tamano="lg"
+        className="flex-1 lg:col-span-2"
+      >
         Cómo llegar
       </ButtonLink>
       <Button
         variante={oscuro ? 'ghost' : 'secondary'}
         tamano="lg"
         onClick={onCompartir}
-        className={oscuro ? 'shrink-0 text-white hover:bg-white/15' : 'shrink-0'}
+        className={`shrink-0 ${hasGpx ? '' : 'lg:col-span-2'} ${secundario}`}
         title="Compartir este circuito"
         aria-label="Compartir este circuito"
       >
-        Compartir
+        <span className="lg:hidden">
+          <IconoCompartir />
+        </span>
+        <span className="hidden lg:inline">Compartir</span>
       </Button>
       {/* sin archivo no se ofrece la descarga: sería un botón que da error */}
       {hasGpx && (
@@ -602,10 +635,14 @@ function Acciones({
           variante={oscuro ? 'ghost' : 'secondary'}
           tamano="lg"
           onClick={onDescargar}
-          className={oscuro ? 'shrink-0 text-white hover:bg-white/15' : 'shrink-0'}
+          className={`shrink-0 ${secundario}`}
           title="Descargar el GPX para el GPS, Strava o Wikiloc"
+          aria-label="Descargar el GPX para el GPS, Strava o Wikiloc"
         >
-          GPX
+          <span className="lg:hidden">
+            <IconoDescargar />
+          </span>
+          <span className="hidden lg:inline">GPX</span>
         </Button>
       )}
     </div>

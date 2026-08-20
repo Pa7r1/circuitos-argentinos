@@ -49,3 +49,30 @@ export function IconoMapa({ size = 20 }: { size?: number }) {
     </svg>
   );
 }
+
+/**
+ * Compartir y descargar. Viven acá con los del mapa por el mismo motivo que los
+ * otros: la botonera de la ficha se queda sin texto en teléfono —los tres botones
+ * pedían más ancho del que hay a 360 px— y el ícono pasa a ser lo único visible.
+ * El nombre accesible lo sigue poniendo el `aria-label` del botón.
+ */
+export function IconoCompartir({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} {...traza}>
+      <circle cx="18" cy="5.5" r="2.5" />
+      <circle cx="6" cy="12" r="2.5" />
+      <circle cx="18" cy="18.5" r="2.5" />
+      <path d="m8.2 10.8 7.6-4M8.2 13.2l7.6 4" />
+    </svg>
+  );
+}
+
+export function IconoDescargar({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} {...traza}>
+      <path d="M12 3.5v11" />
+      <path d="m7.5 10.5 4.5 4.5 4.5-4.5" />
+      <path d="M4.5 17v2a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-2" />
+    </svg>
+  );
+}
