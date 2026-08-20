@@ -5,7 +5,7 @@ import { Button } from '../../components/Button';
 import { Field } from '../../components/Field';
 import { Modal } from '../../components/Modal';
 import { PieSitio } from '../../components/PieSitio';
-import { api, RequestError } from '../../lib/api';
+import { api, mensajeParaPersona } from '../../lib/api';
 import { clearSession } from '../../lib/session';
 import { useSession } from '../../lib/use-session';
 
@@ -125,10 +125,7 @@ function BorrarCuentaModal({ onClose }: { onClose: () => void }) {
     // clearSession vacía el almacenamiento y avisa a toda la app: la pantalla
     // vuelve sola al estado de visitante
     onSuccess: () => clearSession(),
-    onError: (e) =>
-      setError(
-        e instanceof RequestError ? e.message : 'No pudimos borrar la cuenta. Reintentá en un rato.',
-      ),
+    onError: (e) => setError(mensajeParaPersona(e)),
   });
 
   return (
