@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ACCESS_TYPES,
@@ -17,6 +17,7 @@ import { api, mensajeParaPersona } from '../../lib/api';
 import { ACCESS_LABEL, DIFFICULTY_LABEL } from '../../lib/format';
 import { resizeImage } from '../../lib/image';
 import { puntosAGpx, type PuntoLonLat } from '../../lib/puntos-a-gpx';
+import { MAX_FOTOS, sumarFotos } from '../../lib/sumar-fotos';
 import { useTecladoAbierto } from '../../lib/use-teclado';
 import { useSession } from '../../lib/use-session';
 import { AuthModal } from '../auth/AuthModal';
@@ -24,8 +25,6 @@ import { GpxPreview, parseGpxCoordinates } from '../admin/GpxPreview';
 import { LocationPicker } from '../admin/LocationPicker';
 import { DibujarRecorrido } from './DibujarRecorrido';
 import { Opciones, PASOS, Paso, Progreso } from './pasos';
-
-const MAX_FOTOS = 3;
 
 /*
  * El botón que dibuja el navegador para `input[type=file]` dice "Choose File" en el
@@ -179,6 +178,64 @@ export function ProponerPage() {
   const [fotos, setFotos] = useState<File[]>([]);
   const [telefono, setTelefono] = useState('');
 
+  /*
+   * Las miniaturas se dibujaban con `URL.createObjectURL(foto)` dentro del render:
+   * cada render creaba un blob nuevo y ninguno se liberaba nunca, así que la foto
+   * quedaba viva en memoria tantas veces como se hubiera redibujado el paso. Acá la
+   * URL se crea una sola vez, al elegir el archivo, y se libera al quitarlo o al
+   * desmontar la página.
+   */
+  const miniaturas = useRef(new Map<File, string>());
+  useEffect(() => {
+    const mapa = miniaturas.current;
+    return () => {
+      for (const url of mapa.values()) URL.revokeObjectURL(url);
+      mapa.clear();
+    };
+  }, []);
+
+  function agregarFotos(elegidas: FileList | null) {
+    const ofrecidas = Array.from(elegidas ?? []);
+    const sumadas = sumarFotos(fotos, ofrecidas);
+    for (const foto of sumadas) {
+      if (!miniaturas.current.has(foto)) miniaturas.current.set(foto, URL.createObjectURL(foto));
+    }
+
+    /*
+     * Lo que no entró se dice. Elegir cinco de una sola tanda dejaba tres y
+     * descartaba dos en silencio: desde afuera se ve igual que un archivo que no
+     * se subió, y es justo la confusión que este paso vino a resolver.
+     *
+     * Los dos motivos posibles se distinguen, porque el arreglo es distinto: si se
+     * llenó el cupo hay que quitar alguna, y si la foto estaba repetida no falta
+     * nada.
+     */
+    const entraron = sumadas.length - fotos.length;
+    const afuera = ofrecidas.length - entraron;
+    if (afuera > 0) {
+      toast(
+        sumadas.length >= MAX_FOTOS
+          ? `Entran hasta ${String(MAX_FOTOS)} fotos, así que ${
+              afuera === 1 ? 'quedó una afuera' : `quedaron ${String(afuera)} afuera`
+            }.`
+          : afuera === 1
+            ? 'Esa foto ya estaba en la lista.'
+            : 'Esas fotos ya estaban en la lista.',
+      );
+    }
+
+    setFotos(sumadas);
+  }
+
+  function quitarFoto(foto: File) {
+    const url = miniaturas.current.get(foto);
+    if (url) {
+      URL.revokeObjectURL(url);
+      miniaturas.current.delete(foto);
+    }
+    setFotos(fotos.filter((f) => f !== foto));
+  }
+
   /* Si ya intentó avanzar con algo incompleto. Mientras es false, lo que falta se
      dice en gris al lado del botón; después, en rojo y pegado al campo. Avisar en
      rojo antes de que la persona haga nada es retarla por adelantado. */
@@ -232,15 +289,39 @@ export function ProponerPage() {
 
       const creado = await api.proponerCircuito(form);
 
-      // las fotos van después y de a una: el multipart admite un archivo por pedido
+      /*
+       * Las fotos van después y de a una: el multipart admite un archivo por pedido.
+       *
+       * Y una foto que falla no hunde el envío. Antes el `await` cortaba el bucle y
+       * la mutación entera se reportaba como error, aunque la propuesta ya estuviera
+       * creada: la persona veía "algo salió mal", daba por perdido todo y volvía a
+       * cargar el formulario entero. Acá se sigue con las que quedan y al final se
+       * cuenta cuántas no entraron.
+       */
+      let fotosCaidas = 0;
       for (const foto of fotos.slice(0, MAX_FOTOS)) {
-        const fotoForm = new FormData();
-        fotoForm.append('file', await resizeImage(foto));
-        await api.subirFotoPropuesta(creado.id, fotoForm);
+        try {
+          const fotoForm = new FormData();
+          fotoForm.append('file', await resizeImage(foto));
+          await api.subirFotoPropuesta(creado.id, fotoForm);
+        } catch (e) {
+          // el detalle técnico a la consola; a la pantalla va el recuento, abajo
+          console.error(e);
+          fotosCaidas += 1;
+        }
       }
-      return creado;
+      return { creado, fotosCaidas };
     },
-    onSuccess: () => setEnviado(true),
+    onSuccess: ({ fotosCaidas }) => {
+      setEnviado(true);
+      if (fotosCaidas > 0) {
+        toast(
+          fotosCaidas === 1
+            ? 'Mandamos la propuesta, pero una foto no se pudo subir. Escribinos y la sumamos.'
+            : `Mandamos la propuesta, pero ${fotosCaidas} fotos no se pudieron subir. Escribinos y las sumamos.`,
+        );
+      }
+    },
     onError: (e) => toast(mensajeParaPersona(e)),
   });
 
@@ -637,46 +718,146 @@ export function ProponerPage() {
             titulo="Fotos y cómo ubicarte"
             ayuda="Las fotos son lo que más ayuda a decidir. El teléfono es solo para nosotros."
           >
+            {/*
+              El control se ve como una zona de carga y no como un botón chico: hay
+              tres huecos a la vista y un contador explícito, así que se entiende que
+              faltan fotos por sumar sin tener que leer la ayuda. Antes era un botón
+              que decía "Elegir otras fotos" —o sea, anunciaba que las anteriores se
+              perdían— y de hecho eso hacía.
+            */}
             <div>
-              <label htmlFor="fotos" className="mb-1.5 block text-sm font-medium text-white/80">
-                Fotos (hasta {MAX_FOTOS})
-              </label>
+              <div className="mb-1.5 flex items-baseline justify-between gap-3">
+                <label htmlFor="fotos" className="block text-sm font-medium text-white/80">
+                  Fotos
+                </label>
+                <span
+                  id="fotos-contador"
+                  role="status"
+                  className="text-xs tabular-nums text-white/55"
+                >
+                  {fotos.length} de {MAX_FOTOS}
+                </span>
+              </div>
+
               <input
                 id="fotos"
                 type="file"
                 accept="image/*"
                 multiple
-                aria-describedby="fotos-ayuda"
-                onChange={(e) => setFotos(Array.from(e.target.files ?? []).slice(0, MAX_FOTOS))}
+                aria-describedby="fotos-ayuda fotos-contador"
+                onChange={(e) => {
+                  agregarFotos(e.target.files);
+                  /* sin esto, volver a elegir el mismo archivo no dispara `change`
+                     —el valor del input no cambió— y parece que la app se colgó */
+                  e.target.value = '';
+                }}
                 className="peer sr-only"
               />
-              <label htmlFor="fotos" className={BOTON_ARCHIVO}>
-                {fotos.length > 0 ? 'Elegir otras fotos' : 'Elegir fotos'}
-              </label>
-              <p id="fotos-ayuda" className="mt-2 text-xs text-white/55">
-                Del terreno, la entrada o el paisaje. Podés sacarlas ahora con la cámara.
-              </p>
-              {fotos.length > 0 && (
-                <ul className="mt-3 flex flex-wrap gap-2">
-                  {fotos.map((foto, i) => (
-                    <li key={foto.name + String(i)} className="relative">
-                      <img
-                        src={URL.createObjectURL(foto)}
-                        alt=""
-                        className="h-20 w-20 rounded-lg object-cover ring-1 ring-white/15"
-                      />
-                      <button
-                        type="button"
-                        aria-label={`Quitar la foto ${i + 1}`}
-                        onClick={() => setFotos(fotos.filter((_, j) => j !== i))}
-                        className="absolute -top-2 -right-2 flex h-7 w-7 items-center justify-center rounded-full bg-stone-900 text-white ring-1 ring-white/25"
+
+              {/*
+                El aro de foco va acá y no en el label: `peer-focus-visible:` genera
+                `.peer:focus-visible ~ .destino`, o sea hermano siguiente, y el label
+                pasó a estar dentro de este div en vez de al lado del input. Las
+                clases que trae `BOTON_ARCHIVO` no aplican desde adentro —siguen
+                sirviendo en el campo del GPX, donde el label sí es hermano—, así que
+                sin esto, llegar tabulando dejaba como única señal un punteado de 1 px.
+              */}
+              <div className="rounded-xl border border-dashed border-white/15 bg-white/4 p-3 peer-focus-visible:border-brand-400 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand-400">
+                <ul className="mb-3 grid grid-cols-3 gap-2">
+                  {Array.from({ length: MAX_FOTOS }, (_, i) => {
+                    const foto = fotos[i];
+                    return (
+                      <li
+                        key={foto ? `${foto.name}:${foto.size}` : `hueco-${String(i)}`}
+                        className="relative"
                       >
-                        ✕
-                      </button>
-                    </li>
-                  ))}
+                        {foto ? (
+                          <>
+                            <img
+                              src={miniaturas.current.get(foto)}
+                              alt=""
+                              className="aspect-square w-full rounded-lg object-cover ring-1 ring-white/15"
+                            />
+                            {/* el botón mide 44 px para el dedo, aunque el disco que
+                                se ve sea de 28: el objetivo táctil no es el dibujo.
+                                Va dentro de la miniatura y no montado en la esquina:
+                                colgado hacia afuera, con huecos de 8 px entre las
+                                tres, el aspa de una foto se apoyaba sobre la de al
+                                lado y no se veía cuál iba a quitar. */}
+                            <button
+                              type="button"
+                              aria-label={`Quitar la foto ${String(i + 1)}`}
+                              onClick={() => quitarFoto(foto)}
+                              /* mientras se envía no se puede quitar: el bucle de
+                                 subida ya tiene la lista y la subiría igual, así que
+                                 sacarla acá solo borra la miniatura y deja la foto
+                                 puesta en el circuito. Es lo mismo que se hace con
+                                 "Atrás" y con el botón de enviar. */
+                              disabled={mutation.isPending}
+                              className="absolute top-0 right-0 flex h-11 w-11 items-center justify-center disabled:opacity-40"
+                            >
+                              <span
+                                aria-hidden="true"
+                                className="flex h-7 w-7 items-center justify-center rounded-full bg-stone-900 text-white ring-1 ring-white/25"
+                              >
+                                ✕
+                              </span>
+                            </button>
+                          </>
+                        ) : (
+                          <div
+                            aria-hidden="true"
+                            className="flex aspect-square w-full items-center justify-center rounded-lg border border-dashed border-white/12 bg-white/4 text-white/25"
+                          >
+                            <svg
+                              width="20"
+                              height="20"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                              strokeLinecap="round"
+                            >
+                              <path d="M12 6v12M6 12h12" />
+                            </svg>
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
-              )}
+
+                {/* al llegar al máximo el control se apaga con el motivo escrito, en
+                    vez de abrir el selector y descartar en silencio lo que se elija */}
+                {fotos.length >= MAX_FOTOS ? (
+                  <p className="text-xs text-white/55">
+                    Llegaste a las {MAX_FOTOS} fotos. Si querés cambiar alguna, quitala y elegí
+                    otra.
+                  </p>
+                ) : (
+                  <label htmlFor="fotos" className={BOTON_ARCHIVO}>
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2.25}
+                      strokeLinecap="round"
+                      aria-hidden="true"
+                      className="mr-2"
+                    >
+                      <path d="M12 5.5v13M5.5 12h13" />
+                    </svg>
+                    {fotos.length > 0 ? 'Agregar otra foto' : 'Elegir fotos'}
+                  </label>
+                )}
+              </div>
+
+              <p id="fotos-ayuda" className="mt-2 text-xs text-white/55">
+                Del terreno, la entrada o el paisaje. Podés sacarlas ahora con la cámara, de a una:
+                cada una se suma a las anteriores.
+              </p>
             </div>
 
             <Field

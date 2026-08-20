@@ -6,7 +6,7 @@ import { DISCIPLINES } from '@circuitos/shared';
 import { Button, ButtonLink } from '../../components/Button';
 import { DisciplineChip } from '../../components/DisciplineChip';
 import { MapControls } from '../../components/MapControls';
-import { PieSitio } from '../../components/PieSitio';
+import { BotonProponer, PieSitio } from '../../components/PieSitio';
 import { clusterSvg, PIN_ANCHOR, PIN_SIZE, pinSvg, setPinSelected } from '../../components/map-pin';
 import { agruparPines } from '../../lib/agrupar-pines';
 import { useToast } from '../../components/Toast';
@@ -56,6 +56,25 @@ const FIT_OPTIONS = {
   paddingTopLeft: [24, 150] as [number, number],
   paddingBottomRight: [72, 130] as [number, number],
 };
+
+/**
+ * A qué altura arrancan los paneles que flotan sobre el mapa.
+ *
+ * Todos ocupan el 90 % del ancho, así que cualquiera de ellos le pasa por encima a
+ * la esquina inferior izquierda —la pastilla de "Sumá tu circuito" y el pie legal—,
+ * que llega a los 124 px contando los 24 de separación, el botón de 44, el hueco de
+ * 8 y el pie. A los 96 px que tenían antes la tapaban, y se veía en la primera
+ * visita de cualquier teléfono, que es justo cuando el aviso aparece y cuando la
+ * acción más importa.
+ *
+ * 9,5rem deja 28 px de aire sobre esa columna, suficiente para que el pie se parta
+ * en dos renglones sin volver a taparla. Va en una constante y no repetido en cada
+ * panel porque ya pasó: se corrigió uno y los otros tres quedaron atrás.
+ *
+ * La clase se escribe entera: Tailwind escanea texto y no ve un fragmento armado en
+ * tiempo de ejecución.
+ */
+const PANEL_SOBRE_EL_PIE = 'bottom-[calc(9.5rem+env(safe-area-inset-bottom))]';
 
 export function MapPage() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -125,7 +144,6 @@ export function MapPage() {
       meMarkerRef.current = null;
       applyLayerRef.current = null;
     };
-     
   }, [L]);
 
   useEffect(() => {
@@ -229,7 +247,6 @@ export function MapPage() {
     return () => {
       vigente = false;
     };
-
   }, [L]);
 
   /*
@@ -292,7 +309,10 @@ export function MapPage() {
           // con divIcon Leaflet no aplica `alt`: el nombre accesible va al elemento
           const el = marker.getElement();
           el?.setAttribute('role', 'button');
-          el?.setAttribute('aria-label', `${circuit.name}, ${DIFFICULTY_LABEL[circuit.difficulty]}`);
+          el?.setAttribute(
+            'aria-label',
+            `${circuit.name}, ${DIFFICULTY_LABEL[circuit.difficulty]}`,
+          );
           // ancla del recorrido guiado: alcanza con que uno de los pines lo tenga
           el?.setAttribute('data-tour', 'pin');
           marker.on('click', () => setSelected(circuit));
@@ -388,7 +408,11 @@ export function MapPage() {
   return (
     <main className="relative h-full">
       <h1 className="sr-only">Circuitos Argentinos — mapa de circuitos off-road</h1>
-      <div ref={containerRef} className="h-full w-full bg-stone-800" aria-label="Mapa de circuitos" />
+      <div
+        ref={containerRef}
+        className="h-full w-full bg-stone-800"
+        aria-label="Mapa de circuitos"
+      />
 
       {/* panel flotante: buscador y cuenta arriba, filtros y resultado debajo */}
       <div className="absolute top-3 left-1/2 z-[500] w-[95%] max-w-xl -translate-x-1/2 space-y-2">
@@ -400,7 +424,10 @@ export function MapPage() {
           después en el DOM y también tienen backdrop-filter, se pintaban encima y
           tapaban la lista. Con z-index propio, el orden deja de depender del DOM.
         */}
-        <div data-tour="buscador" className="flotante relative z-20 flex items-center gap-2 rounded-2xl p-2">
+        <div
+          data-tour="buscador"
+          className="flotante relative z-20 flex items-center gap-2 rounded-2xl p-2"
+        >
           <PlaceSearch selected={place} onSelect={selectPlace} onClear={clearPlace} />
           {/*
             El resultado del filtro vive dentro de la barra y no en una píldora aparte:
@@ -468,30 +495,34 @@ export function MapPage() {
 
         No tapa el mapa ni exige contestar: se puede ignorar y seguir usando todo.
       */}
-      {!isPending && !isError && !avisoUbicacionCerrado && permiso !== 'granted' && permiso !== 'desconocido' && (
-        <div className="hoja flotante absolute bottom-24 left-1/2 z-[500] w-[90%] max-w-sm -translate-x-1/2 rounded-2xl p-4">
-          <p className="mb-3 text-sm text-white/80">
-            {permiso === 'denied'
-              ? 'Tenés la ubicación bloqueada para este sitio. Se habilita desde el candado de la barra de direcciones, y sirve para ordenar los circuitos por cercanía.'
-              : 'Si compartís tu ubicación, ordenamos los circuitos por los que te quedan más cerca.'}
-          </p>
-          <div className="flex gap-2">
-            {permiso !== 'denied' && (
-              <Button variante="primary" className="flex-1" onClick={() => locateMe(true)}>
-                Usar mi ubicación
+      {!isPending &&
+        !isError &&
+        !avisoUbicacionCerrado &&
+        permiso !== 'granted' &&
+        permiso !== 'desconocido' && (
+          <div className={`hoja flotante absolute ${PANEL_SOBRE_EL_PIE} left-1/2 z-[500] w-[90%] max-w-sm -translate-x-1/2 rounded-2xl p-4`}>
+            <p className="mb-3 text-sm text-white/80">
+              {permiso === 'denied'
+                ? 'Tenés la ubicación bloqueada para este sitio. Se habilita desde el candado de la barra de direcciones, y sirve para ordenar los circuitos por cercanía.'
+                : 'Si compartís tu ubicación, ordenamos los circuitos por los que te quedan más cerca.'}
+            </p>
+            <div className="flex gap-2">
+              {permiso !== 'denied' && (
+                <Button variante="primary" className="flex-1" onClick={() => locateMe(true)}>
+                  Usar mi ubicación
+                </Button>
+              )}
+              <Button
+                variante="secondary"
+                ancho={permiso === 'denied'}
+                className={permiso === 'denied' ? '' : 'shrink-0'}
+                onClick={() => setAvisoUbicacionCerrado(true)}
+              >
+                {permiso === 'denied' ? 'Entendido' : 'Ahora no'}
               </Button>
-            )}
-            <Button
-              variante="secondary"
-              ancho={permiso === 'denied'}
-              className={permiso === 'denied' ? '' : 'shrink-0'}
-              onClick={() => setAvisoUbicacionCerrado(true)}
-            >
-              {permiso === 'denied' ? 'Entendido' : 'Ahora no'}
-            </Button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/*
         El mapa ocupa la pantalla entera, así que no hay "abajo de todo" donde poner
@@ -505,8 +536,20 @@ export function MapPage() {
 
         Va levantado 1,5rem porque en teléfono la atribución ocupa todo el ancho de
         la última franja, y taparla no es una opción: es la licencia de los tiles.
+
+        Desde que "Sumá tu circuito" dejó de ser un enlace más de la fila, la
+        esquina es una columna: la pastilla arriba, la letra chica debajo. El
+        `max-w-[58%]` pasó a este contenedor —sigue siendo el ancho que deja libre
+        la atribución— y el z-400 también, así que las dos cosas se apilan igual que
+        antes respecto de la hoja del circuito.
       */}
-      <PieSitio className="flotante absolute bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-2 z-[400] max-w-[58%] rounded-lg px-2.5 py-1.5 text-[10px] text-white/70" />
+      <div className="absolute bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-2 z-[400] flex max-w-[58%] flex-col items-start gap-2">
+        <BotonProponer />
+        <PieSitio
+          accion={false}
+          className="flotante rounded-lg px-2.5 py-1.5 text-[10px] text-white/70"
+        />
+      </div>
 
       {isPending && (
         <p className="hoja flotante absolute top-1/2 left-1/2 z-[500] max-w-[85%] -translate-x-1/2 rounded-full px-4 py-2.5 text-center text-sm font-medium">
@@ -521,7 +564,7 @@ export function MapPage() {
         sitio está roto.
       */}
       {isError && (
-        <div className="hoja flotante absolute bottom-24 left-1/2 z-[500] w-[90%] max-w-sm -translate-x-1/2 rounded-2xl p-4 text-center">
+        <div className={`hoja flotante absolute ${PANEL_SOBRE_EL_PIE} left-1/2 z-[500] w-[90%] max-w-sm -translate-x-1/2 rounded-2xl p-4 text-center`}>
           <p className="mb-1 text-sm font-semibold text-white">No pudimos traer los circuitos</p>
           <p className="mb-3 text-sm text-white/70">
             Puede ser tu conexión, o que el servidor se esté despertando.
@@ -533,7 +576,7 @@ export function MapPage() {
       )}
 
       {!isPending && !isError && (allCircuits?.length ?? 0) === 0 && (
-        <div className="hoja flotante absolute bottom-24 left-1/2 z-[500] w-[90%] max-w-sm -translate-x-1/2 rounded-2xl p-4 text-center">
+        <div className={`hoja flotante absolute ${PANEL_SOBRE_EL_PIE} left-1/2 z-[500] w-[90%] max-w-sm -translate-x-1/2 rounded-2xl p-4 text-center`}>
           <p className="mb-1 text-sm font-semibold text-white">Todavía no hay circuitos</p>
           <p className="text-sm text-white/70">
             Estamos cargando los primeros. Volvé en unos días y va a haber dónde andar.
@@ -543,7 +586,7 @@ export function MapPage() {
 
       {/* sin resultados dentro del radio buscado */}
       {place && !isPending && !isError && circuits.length === 0 && (
-        <div className="hoja flotante absolute bottom-24 left-1/2 z-[500] w-[90%] max-w-sm -translate-x-1/2 rounded-2xl p-4 text-center">
+        <div className={`hoja flotante absolute ${PANEL_SOBRE_EL_PIE} left-1/2 z-[500] w-[90%] max-w-sm -translate-x-1/2 rounded-2xl p-4 text-center`}>
           <p className="mb-3 text-sm text-white/80">
             No hay circuitos a menos de {Math.round(radiusM / 1000)} km de{' '}
             <strong className="font-semibold text-white">{place.name}</strong>.

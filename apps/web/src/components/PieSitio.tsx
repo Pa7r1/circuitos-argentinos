@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { CONTACTO } from '../features/legal/LegalLayout';
 import { BotonInstalar } from './BotonInstalar';
-import { Button } from './Button';
+import { Button, ButtonLink } from './Button';
 import { Modal } from './Modal';
 import { useToast } from './Toast';
 
@@ -17,13 +17,27 @@ const ENLACE =
   'flex min-h-9 items-center underline-offset-4 transition-colors hover:text-white hover:underline';
 
 /**
- * Términos · Privacidad · Contacto · Instalar.
+ * Sumá tu circuito · Términos · Privacidad · Contacto · Instalar.
  *
  * Existe porque los textos legales solo se alcanzaban desde el menú de cuenta, o
  * sea con sesión iniciada: quien todavía no se registró no tenía forma de leer lo
  * que se le pide aceptar.
+ *
+ * `accion` saca "Sumá tu circuito" de la fila. En el mapa esta fila se dibuja a
+ * 10 px y al 70 % de blanco —es cromo, no interfaz—, así que la única acción del
+ * pie, y la que hace crecer el sitio, quedaba tipografiada como letra chica legal e
+ * indistinguible de "Privacidad". Ahí se pasa `accion={false}` y el botón lo coloca
+ * `MapPage` con `BotonProponer`, porque quien sabe dónde cae respecto del mapa es
+ * la página. En la ficha y en las legales sigue en la fila: no hay mapa que
+ * estorbar y no hace falta destacarlo dos veces.
  */
-export function PieSitio({ className = '' }: { className?: string }) {
+export function PieSitio({
+  className = '',
+  accion = true,
+}: {
+  className?: string;
+  accion?: boolean;
+}) {
   const [contacto, setContacto] = useState(false);
 
   return (
@@ -38,9 +52,11 @@ export function PieSitio({ className = '' }: { className?: string }) {
         del mapa se dibujaba a 12 px y el texto se partía en dos líneas.
       */}
       <div className={`flex flex-wrap items-center gap-x-4 ${className}`}>
-        <Link to="/proponer" className={ENLACE}>
-          Sumá tu circuito
-        </Link>
+        {accion && (
+          <Link to="/proponer" className={ENLACE}>
+            Sumá tu circuito
+          </Link>
+        )}
         <Link to="/terminos" className={ENLACE}>
           Términos
         </Link>
@@ -55,6 +71,45 @@ export function PieSitio({ className = '' }: { className?: string }) {
 
       {contacto && <ContactoModal onClose={() => setContacto(false)} />}
     </>
+  );
+}
+
+/**
+ * "Sumá tu circuito" como acción y no como enlace legal.
+ *
+ * Reusa `ButtonLink` en vez de una cadena de clases nueva: es exactamente el caso
+ * para el que existe, y así el relleno (`brand-700`, 5,36:1 con el blanco) y el
+ * acuse de pulsación son los mismos que en el resto de la app. El relleno es opaco
+ * a propósito: sobre el mapa, una superficie translúcida cambia de contraste según
+ * la foto que tenga debajo —arenal claro contra sierra oscura—, y esto no puede
+ * depender de dónde quedó el mapa. El aro negro al 25 % le recorta el borde cuando
+ * el terreno de abajo es claro.
+ *
+ * El `+` va como SVG y no como carácter ni emoji, por lo mismo que los íconos del
+ * mapa: hereda `currentColor` y se ve igual en todos los sistemas.
+ */
+export function BotonProponer({ className = '' }: { className?: string }) {
+  return (
+    <ButtonLink
+      to="/proponer"
+      variante="primary"
+      tamano="sm"
+      className={`ring-1 ring-black/25 ${className}`}
+    >
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={2.25}
+        strokeLinecap="round"
+        aria-hidden="true"
+      >
+        <path d="M12 5.5v13M5.5 12h13" />
+      </svg>
+      Sumá tu circuito
+    </ButtonLink>
   );
 }
 
