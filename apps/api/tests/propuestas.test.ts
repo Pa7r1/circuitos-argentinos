@@ -31,6 +31,39 @@ function multipart(campos: Record<string, string>): {
   };
 }
 
+/** Multipart con un archivo, como el que manda el navegador al subir una foto. */
+function multipartArchivo(data: Buffer): {
+  payload: Buffer;
+  headers: Record<string, string>;
+} {
+  const boundary = '----test-boundary-propuestas';
+  const payload = Buffer.concat([
+    Buffer.from(
+      `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="foto.png"\r\n` +
+        'Content-Type: application/octet-stream\r\n\r\n',
+    ),
+    data,
+    Buffer.from(`\r\n--${boundary}--\r\n`),
+  ]);
+  return {
+    payload,
+    headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+  };
+}
+
+/**
+ * Las propuestas están limitadas a 5 por día y por visitante, y el cubo se elige por
+ * `request.ip`, que con `trustProxy` sale de esta cabecera: una IP propia por caso
+ * evita que un test agote la cuota del siguiente.
+ */
+const desde = (ip: string) => ({ 'x-forwarded-for': ip });
+
+/** Cabecera PNG real: el servicio valida el tipo por los primeros bytes. */
+const PNG = Buffer.concat([
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+  Buffer.alloc(64),
+]);
+
 const CAMPOS = {
   name: 'Circuito de la comunidad',
   discipline: 'enduro',
@@ -195,6 +228,85 @@ describe('propuestas de la comunidad', () => {
     const circuito = detalle.json<AdminCircuitDetail>();
     expect(circuito.status).toBe('rechazado');
     expect(circuito.rejectionReason).toBe('Ya está cargado con otro nombre');
+  });
+
+  it('subir una foto a la propia propuesta devuelve 201 con JSON', async () => {
+    const cuerpo = multipart({ ...CAMPOS, name: 'Propuesta con foto' });
+    const creado = await app.inject({
+      method: 'POST',
+      url: '/api/v1/circuits/propuestas',
+      headers: { ...cuerpo.headers, ...vecino, ...desde('10.0.0.1') },
+      payload: cuerpo.payload,
+    });
+    const { id } = creado.json<{ id: string }>();
+
+    const foto = multipartArchivo(PNG);
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/circuits/propuestas/${id}/media`,
+      headers: { ...foto.headers, ...vecino, ...desde('10.0.0.1') },
+      payload: foto.payload,
+    });
+    expect(res.statusCode).toBe(201);
+    // sin cuerpo JSON el cliente lo lee como un build mal configurado: este es el bug que volvía
+    expect(res.headers['content-type']).toContain('json');
+    expect(res.json<{ url: string }>().url).toMatch(/^\/media\//);
+  });
+
+  it('no se le pueden subir fotos a la propuesta de otra cuenta', async () => {
+    const cuerpo = multipart({ ...CAMPOS, name: 'Propuesta ajena' });
+    const creado = await app.inject({
+      method: 'POST',
+      url: '/api/v1/circuits/propuestas',
+      headers: { ...cuerpo.headers, ...vecino, ...desde('10.0.0.2') },
+      payload: cuerpo.payload,
+    });
+    const { id } = creado.json<{ id: string }>();
+
+    const registro = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/register',
+      headers: desde('10.0.0.2'),
+      payload: { name: 'Otra', email: 'otra@ejemplo.com', password: 'clave-de-prueba' },
+    });
+    const otra = { authorization: `Bearer ${registro.json<{ token: string }>().token}` };
+
+    const foto = multipartArchivo(PNG);
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/circuits/propuestas/${id}/media`,
+      headers: { ...foto.headers, ...otra, ...desde('10.0.0.2') },
+      payload: foto.payload,
+    });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('no se le pueden subir fotos a un circuito ya publicado', async () => {
+    const cuerpo = multipart({ ...CAMPOS, name: 'Propuesta ya publicada' });
+    const creado = await app.inject({
+      method: 'POST',
+      url: '/api/v1/circuits/propuestas',
+      headers: { ...cuerpo.headers, ...vecino, ...desde('10.0.0.3') },
+      payload: cuerpo.payload,
+    });
+    const { id } = creado.json<{ id: string }>();
+
+    const publicar = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/admin/circuits/${id}`,
+      headers: adminAuth,
+      payload: { status: 'published' },
+    });
+    expect(publicar.statusCode).toBe(204);
+
+    const foto = multipartArchivo(PNG);
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/circuits/propuestas/${id}/media`,
+      headers: { ...foto.headers, ...vecino, ...desde('10.0.0.3') },
+      payload: foto.payload,
+    });
+    expect(res.statusCode).toBe(403);
   });
 
   it('borrar la cuenta olvida el teléfono pero no el circuito', async () => {
