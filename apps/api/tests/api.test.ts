@@ -382,8 +382,8 @@ describe('flujo admin completo', () => {
       headers: { authorization: `Bearer ${token}` },
     });
     const item = admin
-      .json<{ slug: string; status: string }[]>()
-      .find((c) => c.slug === circuitSlug);
+      .json<{ items: { slug: string; status: string }[] }>()
+      .items.find((c) => c.slug === circuitSlug);
     expect(item?.status).toBe('archived');
   });
 });

@@ -180,6 +180,31 @@ export interface AdminCircuitListItem {
   updatedAt: string;
 }
 
+/**
+ * Página de la lista del panel. Viaja el total junto a los items porque el panel
+ * necesita saber cuántos hay para paginar, y sacarlo en la misma consulta
+ * (`count(*) OVER()`) evita un segundo viaje a la base.
+ */
+export interface AdminCircuitList {
+  items: AdminCircuitListItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+/**
+ * Contadores del panel. Están los cinco estados posibles: contar solo tres hacía
+ * que los números nunca cerraran con la cantidad de filas de la lista.
+ */
+export interface AdminStats {
+  published: number;
+  draft: number;
+  archived: number;
+  propuesto: number;
+  rechazado: number;
+  users: number;
+}
+
 /** Ficha completa para el formulario de edición del admin */
 export interface AdminCircuitDetail {
   id: string;

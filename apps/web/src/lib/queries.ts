@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
-import type { CircuitListQuery } from '@circuitos/shared';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import type { CircuitListQuery, CircuitStatus } from '@circuitos/shared';
 import { api } from './api';
 import { useSession } from './use-session';
 
@@ -19,8 +19,23 @@ export const circuitKeys = {
    */
   detail: (slug: string, visitante: string) =>
     [...circuitKeys.all, 'detail', slug, visitante] as const,
+  /**
+   * Prefijo de todas las páginas del panel: invalidarlo alcanza para las
+   * páginas y filtros que estén cacheados, sin tener que enumerarlos.
+   */
   adminList: ['admin-circuits'] as const,
+  adminPagina: (params: AdminListParams) => [...circuitKeys.adminList, params] as const,
+  adminStats: ['admin-stats'] as const,
 };
+
+export interface AdminListParams {
+  limit: number;
+  offset: number;
+  /** Sin estado, el servidor devuelve los cinco en su orden de prioridad. */
+  estado?: CircuitStatus;
+  /** Texto a buscar en el nombre. Va al servidor: busca en todo, no en la página. */
+  q?: string;
+}
 
 export function useCircuits(query: CircuitListQuery, enabled = true) {
   return useQuery({
@@ -40,10 +55,29 @@ export function useCircuitDetail(slug: string) {
   });
 }
 
-export function useAdminCircuits(enabled: boolean) {
+/**
+ * Página del listado del panel. Los parámetros entran en la clave: sin eso, dos
+ * páginas distintas compartían caché y la segunda mostraba la primera.
+ *
+ * `placeholderData` deja la página anterior en pantalla mientras llega la
+ * siguiente: sin eso, cada clic en «Siguiente» vaciaba la lista y la altura de
+ * la página saltaba.
+ */
+export function useAdminCircuits(enabled: boolean, params: AdminListParams) {
   return useQuery({
-    queryKey: circuitKeys.adminList,
-    queryFn: () => api.admin.list(),
+    queryKey: circuitKeys.adminPagina(params),
+    queryFn: () => api.admin.listPaginado(params),
+    enabled,
+    staleTime: 0,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Contadores del panel: los comparten el resumen de arriba y la chapa de propuestas. */
+export function useAdminStats(enabled: boolean) {
+  return useQuery({
+    queryKey: circuitKeys.adminStats,
+    queryFn: () => api.admin.stats(),
     enabled,
     staleTime: 0,
   });

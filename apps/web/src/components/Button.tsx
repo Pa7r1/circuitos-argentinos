@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom';
  * `primary` es la acción que queremos que la persona haga, y va una sola por
  * pantalla: es la regla que hace que el naranja signifique algo.
  */
-export type Variante = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
+export type Variante = 'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-solido' | 'success';
 
 const VARIANTE: Record<Variante, string> = {
   /*
@@ -31,6 +31,15 @@ const VARIANTE: Record<Variante, string> = {
   secondary: 'bg-white/10 text-white ring-1 ring-white/15 hover:bg-white/16',
   ghost: 'text-white/80 hover:bg-white/10 hover:text-white',
   danger: 'text-red-300 hover:bg-red-500/15 hover:text-red-200',
+  /*
+   * Rojo macizo, reservado a lo que no se puede deshacer. `danger` a secas es
+   * texto sobre transparente y pesa igual que un botón secundario: correcto para
+   * «Archivar», que se revierte, e insuficiente para «Borrar definitivamente».
+   * El fondo es red-700 (#b91c1c) por la misma medición que el primario: blanco
+   * sobre el 600 da 4,53:1 raspando, sobre el 700 da 6,98:1.
+   */
+  'danger-solido':
+    'bg-red-700 text-white hover:bg-red-800 active:bg-red-900 shadow-[0_1px_2px_rgb(69_10_10/.4),0_6px_16px_-4px_rgb(185_28_28/.45)]',
   success: 'bg-green-600 text-white hover:bg-green-500',
 };
 

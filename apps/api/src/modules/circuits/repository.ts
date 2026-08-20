@@ -71,19 +71,26 @@ export function circuitsRepository(db: Db) {
     /**
      * Foto guardada en la base. La URL es la clave: es única por circuito.
      *
-     * Se excluyen los circuitos archivados y no los borradores. Archivar es
-     * retirar algo que estuvo público, así que su URL puede haber quedado en un
-     * caché o en un historial y seguía sirviéndose para siempre. Los borradores,
-     * en cambio, tienen que verse: el panel muestra las fotos con un `<img src>`
-     * plano, que no manda el token, y filtrarlos dejaría cada circuito sin
-     * imágenes justo mientras se decide si publicarlo.
+     * Esta ruta es pública y sin token, así que sirve **solo** lo publicado. Un
+     * circuito que no está `published` no tiene por qué ser visible desde afuera:
+     * `archived` estuvo público y su URL puede haber quedado en un caché o en un
+     * historial, `rechazado` es un circuito que decidimos que no va y cuyas fotos
+     * subió cualquiera con cuenta, y `draft`/`propuesto` todavía no se mostraron
+     * nunca.
+     *
+     * Antes se dejaban pasar `draft` y `propuesto` porque el panel pedía las
+     * miniaturas con un `<img src>` plano, que no manda el token, y filtrarlos lo
+     * dejaba sin imágenes justo mientras se decidía si publicar. Ese motivo ya no
+     * existe: el panel tiene su propia vía autenticada
+     * (`GET /api/v1/admin/circuits/:id/media/:fileName`), que sirve los bytes sin
+     * mirar el estado. No volver a abrir esta consulta a otros estados.
      */
     async mediaByUrl(url: string): Promise<{ data: Buffer; contentType: string } | null> {
       const rows = (await db.execute(sql`
         SELECT m.data, m.content_type
         FROM circuit_media m
         JOIN circuits c ON c.id = m.circuit_id
-        WHERE m.url = ${url} AND c.status <> 'archived'
+        WHERE m.url = ${url} AND c.status = 'published'
       `)) as unknown as { data: Buffer; content_type: string }[];
       const row = rows[0];
       return row ? { data: row.data, contentType: row.content_type } : null;

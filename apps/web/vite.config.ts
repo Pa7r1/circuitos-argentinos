@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 /**
@@ -10,14 +10,73 @@ import { VitePWA } from 'vite-plugin-pwa';
  * una CSP mal calibrada rompe en silencio y solo para el visitante. Se leen del
  * mismo archivo a propósito: dos copias se desincronizan y la que se prueba deja
  * de ser la que se publica.
+ *
+ * Desde que hay reglas de caché el archivo tiene varios bloques con patrón propio,
+ * así que ya no alcanza con volcarlo todo en `preview.headers`, que es un objeto
+ * plano igual para cualquier ruta: eso le pondría `no-cache` e `immutable` a la
+ * vez a todo y el preview dejaría de parecerse a lo publicado.
  */
-function cabecerasPublicadas(): Record<string, string> {
-  const cabeceras: Record<string, string> = {};
-  for (const linea of readFileSync(new URL('public/_headers', import.meta.url), 'utf8').split('\n')) {
+interface Regla {
+  patron: RegExp;
+  cabeceras: Record<string, string>;
+}
+
+function reglasPublicadas(): Regla[] {
+  const texto = readFileSync(new URL('public/_headers', import.meta.url), 'utf8');
+  const reglas: Regla[] = [];
+  for (const linea of texto.split('\n')) {
+    if (linea.startsWith('#') || linea.trim() === '') continue;
     const [, nombre, valor] = /^\s{2}([\w-]+):\s*(.+)$/.exec(linea) ?? [];
-    if (nombre && valor) cabeceras[nombre] = valor;
+    const abierta = reglas.at(-1);
+    if (nombre && valor) {
+      if (abierta) abierta.cabeceras[nombre] = valor;
+      continue;
+    }
+    if (linea.startsWith('/')) reglas.push({ patron: aRegExp(linea.trim()), cabeceras: {} });
   }
-  return cabeceras;
+  return reglas;
+}
+
+/** `/circuitos/*` → /^\/circuitos\/.*$/. El `*` de Cloudflare es un comodín de ruta. */
+function aRegExp(patron: string): RegExp {
+  const escapado = patron.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+  return new RegExp(`^${escapado}$`);
+}
+
+/**
+ * Aplica esas reglas en `vite preview` con la misma semántica que Cloudflare:
+ * **todos** los bloques que coinciden suman sus cabeceras, y si la misma cabecera
+ * sale en dos bloques los valores se pegan con coma. Así un solapamiento entre
+ * patrones se ve en local en vez de en producción.
+ *
+ * El servidor de archivos del preview conserva lo que ya esté puesto en la
+ * respuesta (mira `res.getHeader` antes de escribir las suyas), así que alcanza
+ * con dejarlas fijadas desde el middleware.
+ */
+function cabecerasEnPreview(): Plugin {
+  const reglas = reglasPublicadas();
+
+  function paraRuta(ruta: string): Record<string, string> {
+    const salida: Record<string, string> = {};
+    for (const regla of reglas) {
+      if (!regla.patron.test(ruta)) continue;
+      for (const [nombre, valor] of Object.entries(regla.cabeceras)) {
+        salida[nombre] = salida[nombre] ? `${salida[nombre]}, ${valor}` : valor;
+      }
+    }
+    return salida;
+  }
+
+  return {
+    name: 'cabeceras-publicadas',
+    configurePreviewServer(servidor) {
+      servidor.middlewares.use((req, res, next) => {
+        const ruta = new URL(req.url ?? '/', 'http://x').pathname;
+        for (const [nombre, valor] of Object.entries(paraRuta(ruta))) res.setHeader(nombre, valor);
+        next();
+      });
+    },
+  };
 }
 
 export default defineConfig({
@@ -25,6 +84,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    cabecerasEnPreview(),
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
@@ -62,7 +122,6 @@ export default defineConfig({
   // mismo proxy para `vite preview`, así el build también se prueba local
   preview: {
     port: 4173,
-    headers: cabecerasPublicadas(),
     proxy: {
       '/api': 'http://localhost:3000',
       '/media': 'http://localhost:3000',

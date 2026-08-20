@@ -40,6 +40,46 @@ const updateBodySchema = z.object({
 
 const idParamsSchema = z.object({ id: z.uuid() });
 
+/**
+ * Filtros de la lista del panel.
+ *
+ * `limit` tiene techo: sin él, un `?limit=100000` devuelve la tabla entera y
+ * vuelve a ser el problema que la paginación viene a resolver. Los valores por
+ * defecto hacen que un pedido sin querystring siga funcionando como antes.
+ */
+const listQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+  estado: z.enum(CIRCUIT_STATUSES).optional(),
+  /*
+   * Búsqueda por nombre. Se recorta y un `?q=` vacío vale lo mismo que no
+   * mandarlo: el buscador del panel manda el campo aunque esté en blanco y no
+   * tiene por qué recibir un 400 por eso.
+   */
+  q: z
+    .string()
+    .max(100)
+    .optional()
+    .transform((valor) => {
+      const limpio = valor?.trim();
+      return limpio ? limpio : undefined;
+    }),
+});
+
+/**
+ * Foto de un circuito para el panel.
+ *
+ * El nombre del archivo va como parámetro de ruta y no la URL entera como query:
+ * así el `:id` viaja aparte y la pertenencia se puede comprobar contra la base
+ * (`circuit_media.circuit_id = :id`) en vez de creerle a una cadena. El formato
+ * queda acotado a lo que genera el propio servicio —marca de tiempo y extensión—,
+ * así que ni barras ni puntos suspensivos entran.
+ */
+const mediaParamsSchema = z.object({
+  id: z.uuid(),
+  fileName: z.string().min(1).max(200).regex(/^[A-Za-z0-9._-]+$/),
+});
+
 export function adminRoutes(service: AdminService) {
   return async function routes(app: FastifyInstance): Promise<void> {
     /*
@@ -72,7 +112,14 @@ export function adminRoutes(service: AdminService) {
 
     typed.get('/admin/stats', async () => service.stats());
 
-    typed.get('/admin/circuits', async () => service.list());
+    typed.get(
+      '/admin/circuits',
+      { schema: { querystring: listQuerySchema } },
+      async (request) => {
+        const { limit, offset, estado, q } = request.query;
+        return service.list({ limit, offset, estado, q });
+      },
+    );
 
     typed.get(
       '/admin/circuits/:id',
@@ -123,12 +170,51 @@ export function adminRoutes(service: AdminService) {
       },
     );
 
+    /*
+     * Borrado definitivo, separado del archivar de arriba a propósito: son dos
+     * verbos distintos sobre el mismo recurso y este no se deshace. El servicio
+     * exige que el circuito ya esté archivado o rechazado.
+     *
+     * No lleva guard propio: el `onRequest` del tope del plugin ya la protege.
+     */
+    typed.delete(
+      '/admin/circuits/:id/definitivo',
+      { schema: { params: idParamsSchema } },
+      async (request, reply) => {
+        await service.deleteForever(request.params.id);
+        return reply.status(204).send();
+      },
+    );
+
     typed.delete(
       '/admin/circuits/:id/media',
       { schema: { params: idParamsSchema, body: z.object({ url: z.string().min(1).max(500) }) } },
       async (request, reply) => {
         await service.removeMedia(request.params.id, request.body.url);
         return reply.status(204).send();
+      },
+    );
+
+    /*
+     * Los bytes de una foto, sin importar en qué estado esté el circuito.
+     *
+     * `/media/:id/:archivo` es público y desde ahora sirve solo lo publicado, así
+     * que el panel —que muestra borradores, propuestas y rechazados— pide por acá.
+     * No lleva guard propio: el `onRequest` del tope del plugin ya la protege.
+     */
+    typed.get(
+      '/admin/circuits/:id/media/:fileName',
+      { schema: { params: mediaParamsSchema } },
+      async (request, reply) => {
+        const { id, fileName } = request.params;
+        const { data, contentType } = await service.photo(id, fileName);
+        return reply
+          .header('content-type', contentType)
+          // el nombre lleva la marca de tiempo de la subida: una URL siempre
+          // devuelve la misma imagen. `private` porque la respuesta es con sesión
+          // y no la puede guardar ningún caché compartido.
+          .header('cache-control', 'private, max-age=31536000, immutable')
+          .send(data);
       },
     );
 

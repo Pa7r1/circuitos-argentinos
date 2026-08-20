@@ -73,6 +73,11 @@ export function propuestasRoutes(config: Config, service: AdminService) {
         /*
          * El estado y el autor los pone el servidor, nunca el cuerpo del pedido:
          * si no, cualquiera con cuenta se publicaría el circuito solo.
+         *
+         * El alta también corta la propuesta repetida: si esta persona ya tiene
+         * una sin revisar con el mismo nombre, `create` tira PROPUESTA_DUPLICADA
+         * (409) en vez de dejar dos filas. La comprobación vive en el servicio
+         * porque la ruta no habla con la base.
          */
         const creado = await service.create(parsed.data, files.gpx ?? null, {
           status: 'propuesto',

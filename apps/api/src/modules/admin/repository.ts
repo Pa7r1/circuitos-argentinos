@@ -1,6 +1,7 @@
 import { sql, type SQL } from 'drizzle-orm';
 import type {
   AdminCircuitDetail,
+  AdminCircuitList,
   AdminCircuitListItem,
   GeoJsonPoint,
   ScheduleInput,
@@ -52,6 +53,29 @@ export interface CircuitUpdateSets {
   schedules?: ScheduleInput[];
 }
 
+export interface ListAllOptions {
+  limit: number;
+  offset: number;
+  estado?: string;
+  /** Texto libre para buscar por nombre. Ya viene recortado por la ruta. */
+  q?: string;
+}
+
+/**
+ * Nombre comparable: minúsculas y sin acentos. `translate` alcanza para el
+ * castellano y no obliga a instalar `unaccent`, que sería una extensión más que
+ * habría que crear a mano en la base de producción.
+ */
+const sinAcentos = (valor: SQL) =>
+  sql`translate(lower(${valor}), 'áàäâãéèëêíìïîóòöôõúùüûñ', 'aaaaaeeeeiiiiooooouuuun')`;
+
+/**
+ * Lo que escribe la persona es texto, no un patrón: `%` y `_` son comodines de
+ * LIKE y hay que neutralizarlos, o buscar "100%" devuelve cualquier cosa. El
+ * `\\` se escapa primero porque es el propio carácter de escape.
+ */
+const patronLike = (q: string): string => `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+
 export function adminRepository(db: Db) {
   async function insertSchedules(
     tx: Pick<Db, 'execute'>,
@@ -100,6 +124,29 @@ export function adminRepository(db: Db) {
       )) as unknown as { created_by: string | null; status: string }[];
       const row = rows[0];
       return row ? { createdBy: row.created_by, status: row.status } : null;
+    },
+
+    /**
+     * Bytes de una foto del panel, sin mirar el estado del circuito: el panel
+     * necesita ver las miniaturas de un borrador, de una propuesta y de algo que
+     * ya se rechazó, que es justo lo que la ruta pública dejó de servir.
+     *
+     * La pertenencia se comprueba contra la base: el `circuit_id` de la fila
+     * tiene que ser el del pedido. Componer la URL con el `circuitId` recibido no
+     * alcanzaría como control —sería comparar cadenas—, así que la condición va
+     * sobre la columna.
+     */
+    async mediaOfCircuit(
+      circuitId: string,
+      fileName: string,
+    ): Promise<{ data: Buffer; contentType: string } | null> {
+      const rows = (await db.execute(sql`
+        SELECT m.data, m.content_type
+        FROM circuit_media m
+        WHERE m.circuit_id = ${circuitId} AND m.url = ${`/media/${circuitId}/${fileName}`}
+      `)) as unknown as { data: Buffer; content_type: string }[];
+      const row = rows[0];
+      return row ? { data: row.data, contentType: row.content_type } : null;
     },
 
     async countMedia(circuitId: string): Promise<number> {
@@ -174,28 +221,99 @@ export function adminRepository(db: Db) {
       };
     },
 
-    async listAll(): Promise<AdminCircuitListItem[]> {
+    /**
+     * Una página de la lista del panel.
+     *
+     * El orden sale del SQL y no del cliente: primero lo publicado, después lo que
+     * espera revisión, después lo archivado y al final el resto. Sin `LIMIT` la
+     * lista crecía sin techo y se traía la tabla entera en cada apertura del panel.
+     *
+     * El total viaja en la misma consulta con `count(*) OVER()`: es la cuenta de
+     * filas que la ventana ve *antes* del LIMIT, o sea el total del filtro, y
+     * ahorra el segundo viaje a la base.
+     *
+     * El `c.id` del final no es decorativo: `updated_at` no es único —dos circuitos
+     * insertados en la misma transacción comparten el valor— y sin un desempate
+     * único Postgres no garantiza el mismo orden entre dos consultas. Con LIMIT eso
+     * se traduce en una fila que sale en la página 1 y otra vez en la 2, mientras
+     * otra no sale en ninguna.
+     */
+    async listAll(opts: ListAllOptions): Promise<AdminCircuitList> {
+      const conds: SQL[] = [];
+      if (opts.estado) conds.push(sql`c.status = ${opts.estado}`);
+      if (opts.q) {
+        conds.push(
+          sql`${sinAcentos(sql`c.name`)} LIKE ${sinAcentos(sql`${patronLike(opts.q)}`)} ESCAPE '\\'`,
+        );
+      }
+      const filtro = conds.length > 0 ? sql`WHERE ${sql.join(conds, sql` AND `)}` : sql``;
       const rows = (await db.execute(sql`
         SELECT c.id, c.slug, c.name, c.status, c.difficulty,
                d.slug AS discipline, p.slug AS province,
-               c.distance_m, c.created_at, c.updated_at
+               c.distance_m, c.created_at, c.updated_at,
+               count(*) OVER()::int AS total
         FROM circuits c
         JOIN disciplines d ON d.id = c.discipline_id
         JOIN provinces p ON p.id = c.province_id
-        ORDER BY c.updated_at DESC
+        ${filtro}
+        ORDER BY CASE c.status
+                   WHEN 'published' THEN 0
+                   WHEN 'propuesto' THEN 1
+                   WHEN 'archived' THEN 2
+                   ELSE 3
+                 END,
+                 c.updated_at DESC,
+                 c.id
+        LIMIT ${opts.limit} OFFSET ${opts.offset}
       `)) as unknown as Record<string, unknown>[];
-      return rows.map((r) => ({
-        id: r.id as string,
-        slug: r.slug as string,
-        name: r.name as string,
-        status: r.status as AdminCircuitListItem['status'],
-        difficulty: r.difficulty as AdminCircuitListItem['difficulty'],
-        discipline: r.discipline as string,
-        province: r.province as string,
-        distanceM: r.distance_m as number,
-        createdAt: new Date(r.created_at as string).toISOString(),
-        updatedAt: new Date(r.updated_at as string).toISOString(),
-      }));
+
+      return {
+        items: rows.map((r) => ({
+          id: r.id as string,
+          slug: r.slug as string,
+          name: r.name as string,
+          status: r.status as AdminCircuitListItem['status'],
+          difficulty: r.difficulty as AdminCircuitListItem['difficulty'],
+          discipline: r.discipline as string,
+          province: r.province as string,
+          distanceM: r.distance_m as number,
+          createdAt: new Date(r.created_at as string).toISOString(),
+          updatedAt: new Date(r.updated_at as string).toISOString(),
+        })),
+        // sin filas la ventana no devuelve nada: la página vacía vale 0
+        total: (rows[0]?.total as number | undefined) ?? 0,
+        limit: opts.limit,
+        offset: opts.offset,
+      };
+    },
+
+    /**
+     * ¿Esta persona ya tiene una propuesta sin revisar con este mismo nombre?
+     *
+     * Se compara sin distinguir mayúsculas y colapsando los espacios de sobra:
+     * quien reintenta el formulario lo escribe casi igual, no idéntico. Solo mira
+     * `propuesto`: volver a proponer algo que se rechazó es legítimo.
+     */
+    async propuestaPendienteConNombre(userId: string, name: string): Promise<boolean> {
+      const rows = (await db.execute(sql`
+        SELECT 1 FROM circuits
+        WHERE created_by = ${userId}
+          AND status = 'propuesto'
+          AND regexp_replace(btrim(lower(name)), '[[:space:]]+', ' ', 'g')
+              = regexp_replace(btrim(lower(${name})), '[[:space:]]+', ' ', 'g')
+      `)) as unknown as unknown[];
+      return rows.length > 0;
+    },
+
+    /**
+     * Borrado real de la fila. Fotos, GPX y horarios se van con ella por el
+     * `ON DELETE CASCADE` de las tres tablas hijas: no hay que borrarlas a mano.
+     */
+    async deleteById(id: string): Promise<boolean> {
+      const rows = (await db.execute(
+        sql`DELETE FROM circuits WHERE id = ${id} RETURNING id`,
+      )) as unknown as { id: string }[];
+      return rows.length > 0;
     },
 
     async create(data: CircuitInsert): Promise<{ id: string; slug: string }> {

@@ -1,15 +1,20 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { AdminCircuitDetail, AdminCircuitListItem, CircuitStatus } from '@circuitos/shared';
+import type {
+  AdminCircuitDetail,
+  AdminCircuitListItem,
+  AdminStats,
+  CircuitStatus,
+} from '@circuitos/shared';
 import { DISCIPLINES, PROVINCES } from '@circuitos/shared';
 import { Button, ButtonLink } from '../../components/Button';
 import { Field, VerPassword } from '../../components/Field';
 import { Modal } from '../../components/Modal';
 import { useToast } from '../../components/Toast';
-import { api, RequestError } from '../../lib/api';
+import { api, mensajeParaPersona, RequestError } from '../../lib/api';
 import { STATUS_LABEL } from '../../lib/format';
-import { circuitKeys, useAdminCircuits } from '../../lib/queries';
+import { circuitKeys, useAdminCircuits, useAdminStats } from '../../lib/queries';
 import { clearSession, setSession } from '../../lib/session';
 import { useSession } from '../../lib/use-session';
 import { CircuitForm } from './CircuitForm';
@@ -23,15 +28,47 @@ const STATUS_STYLE: Record<CircuitStatus, string> = {
   rechazado: 'bg-white/8 text-white/50',
 };
 
-// las propuestas primero: son lo único que espera una decisión
-const FILTROS: (CircuitStatus | 'todos')[] = [
-  'propuesto',
-  'todos',
-  'published',
-  'draft',
-  'archived',
-  'rechazado',
-];
+/*
+ * Orden de las pestañas: primero lo que está vivo en el mapa, después lo que
+ * espera una decisión, después lo retirado, y al final los dos estados de paso.
+ * «Ver todos» no es un estado: va detrás de un separador, porque mezclado con
+ * los demás se leía como un sexto estado llamado «Todos».
+ */
+const FILTROS: CircuitStatus[] = ['published', 'propuesto', 'archived', 'draft', 'rechazado'];
+
+/** En una pestaña se cuenta un conjunto, así que van en plural. */
+const FILTRO_LABEL: Record<CircuitStatus, string> = {
+  published: 'Publicados',
+  propuesto: 'Propuestas',
+  archived: 'Archivados',
+  draft: 'Borradores',
+  rechazado: 'Rechazados',
+};
+
+/**
+ * Filas por página. La API admite hasta 100, pero cada circuito es una tarjeta
+ * con dos renglones y una botonera: de a veinte, la página entra en dos o tres
+ * pantallas de teléfono y los controles de paginación quedan al alcance.
+ */
+const POR_PAGINA = 20;
+
+/** Tacho: la única acción del panel que no se puede deshacer lleva su propia marca. */
+function IconoTacho() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+    </svg>
+  );
+}
 
 /** El listado guarda slugs; en pantalla van los nombres de siempre. */
 const nombreDisciplina = (slug: string) =>
@@ -141,25 +178,34 @@ function SinPermisos({ nombre }: { nombre: string }) {
   );
 }
 
-function Resumen() {
-  const { data } = useQuery({
-    queryKey: ['admin-stats'],
-    queryFn: () => api.admin.stats(),
-    staleTime: 0,
-  });
+/**
+ * Contadores del panel. Antes faltaban propuestos y rechazados, así que la suma
+ * del resumen nunca daba la cantidad de filas de la lista y parecía un error.
+ */
+function Resumen({ data }: { data?: AdminStats }) {
   const items = [
-    ['Publicados', data?.published],
-    ['Borradores', data?.draft],
-    ['Archivados', data?.archived],
-    ['Usuarios', data?.users],
+    ['Publicados', data?.published, false],
+    ['Propuestas', data?.propuesto, true],
+    ['Borradores', data?.draft, false],
+    ['Archivados', data?.archived, false],
+    ['Rechazados', data?.rechazado, false],
+    ['Usuarios', data?.users, false],
   ] as const;
 
   return (
-    <dl className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
-      {items.map(([label, valor]) => (
+    <dl className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-3">
+      {items.map(([label, valor, destacado]) => (
         <div key={label} className="tarjeta px-4 py-3">
           <dt className="text-xs font-medium tracking-wide text-white/55 uppercase">{label}</dt>
-          <dd className="mt-0.5 text-3xl font-bold tabular-nums">{valor ?? '—'}</dd>
+          {/* lo propuesto es lo único que pide una decisión: se pinta con el
+              color de acción cuando hay algo esperando, y no cuando está en cero */}
+          <dd
+            className={`mt-0.5 text-3xl font-bold tabular-nums ${
+              destacado && (valor ?? 0) > 0 ? 'text-brand-200' : ''
+            }`}
+          >
+            {valor ?? '—'}
+          </dd>
         </div>
       ))}
     </dl>
@@ -175,24 +221,70 @@ export function AdminPage() {
   // traducir ni estilar, y aparecía en medio de una interfaz cuidada
   const [porArchivar, setPorArchivar] = useState<AdminCircuitListItem | null>(null);
   const [porRechazar, setPorRechazar] = useState<AdminCircuitListItem | null>(null);
-  const [filtro, setFiltro] = useState<CircuitStatus | 'todos'>('todos');
+  const [porBorrar, setPorBorrar] = useState<AdminCircuitListItem | null>(null);
+  // el panel abre en lo que está publicado: es el estado del que se parte para
+  // trabajar, y «todos» de entrada mezclaba borradores y rechazos con el mapa real
+  const [filtro, setFiltro] = useState<CircuitStatus | 'todos'>('published');
   const [busqueda, setBusqueda] = useState('');
+  const [pagina, setPagina] = useState(0);
   const queryClient = useQueryClient();
   const toast = useToast();
 
   const esAdmin = session?.user.role === 'admin';
-  const { data: circuits, isPending, isError, error } = useAdminCircuits(!!esAdmin);
-  /** Lo que espera una decisión tuya: es el número que importa del panel. */
-  const pendientes = (circuits ?? []).filter((c) => c.status === 'propuesto').length;
+  const { data: stats } = useAdminStats(!!esAdmin);
+  /*
+   * El texto que se manda al servidor va con retardo respecto del que se escribe.
+   * Sin esto cada tecla dispara un pedido, y en el teléfono de quien administra
+   * eso son diez llamadas para escribir «Chilecito». 300 ms es lo que tarda una
+   * pausa entre palabras.
+   */
+  const [busquedaAplicada, setBusquedaAplicada] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setBusquedaAplicada(busqueda.trim());
+      setPagina(0);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [busqueda]);
 
-  const visibles = useMemo(() => {
-    const texto = busqueda.trim().toLowerCase();
-    return (circuits ?? []).filter(
-      (c) =>
-        (filtro === 'todos' || c.status === filtro) &&
-        (texto === '' || c.name.toLowerCase().includes(texto)),
-    );
-  }, [circuits, filtro, busqueda]);
+  const { data, isPending, isError, error } = useAdminCircuits(!!esAdmin, {
+    limit: POR_PAGINA,
+    offset: pagina * POR_PAGINA,
+    estado: filtro === 'todos' ? undefined : filtro,
+    q: busquedaAplicada || undefined,
+  });
+  const enPagina = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const totalPaginas = Math.max(1, Math.ceil(total / POR_PAGINA));
+  /**
+   * Lo que espera una decisión tuya. Sale de los contadores y no de la lista:
+   * con la lista paginada, contar sobre lo que llegó daría «los propuestos de
+   * esta página», que es un número sin significado.
+   */
+  const pendientes = stats?.propuesto ?? 0;
+
+  /*
+   * La búsqueda la resuelve el servidor con `?q=`, así que lo que llega ya está
+   * filtrado y `total` es el total de lo que coincide. Antes esto filtraba en el
+   * cliente sobre la página cargada: con la paginación en el servidor eso pasó a
+   * buscar solo entre veinte, y un resultado vacío se leía como «no existe».
+   */
+  const visibles = enPagina;
+
+  /** Cambiar de filtro o de texto arranca de nuevo: la página 4 de otra cosa no existe. */
+  const cambiarFiltro = (f: CircuitStatus | 'todos') => {
+    setFiltro(f);
+    setPagina(0);
+  };
+
+  /*
+   * Si la última página se queda sin filas —se archivó, se rechazó o se borró lo
+   * que había— el offset queda apuntando fuera del total y la lista sale vacía
+   * sin ninguna explicación. Se retrocede a la última que sí existe.
+   */
+  useEffect(() => {
+    if (data && pagina >= totalPaginas) setPagina(totalPaginas - 1);
+  }, [data, pagina, totalPaginas]);
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: CircuitStatus }) =>
@@ -200,18 +292,29 @@ export function AdminPage() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: circuitKeys.all });
       void queryClient.invalidateQueries({ queryKey: circuitKeys.adminList });
-      void queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+      void queryClient.invalidateQueries({ queryKey: circuitKeys.adminStats });
     },
-    onError: (e) => toast(e instanceof RequestError ? e.message : 'No se pudo actualizar'),
+    onError: (e) => toast(mensajeParaPersona(e)),
   });
+
+  /** De qué fila es el cambio de estado que está en curso, si hay alguno. */
+  const cambiando = statusMutation.isPending ? statusMutation.variables.id : null;
+
+  /*
+   * Borrar la sesión es un efecto sobre un store externo, así que no puede pasar
+   * durante el render: en StrictMode el render corre dos veces y se ejecutaba dos
+   * veces. Va acá arriba con el resto de los hooks porque debajo hay returns
+   * tempranos, y un hook después de un return condicional no es un hook.
+   */
+  const sesionVencida =
+    isError && error instanceof RequestError && [401, 403].includes(error.statusCode);
+  useEffect(() => {
+    if (sesionVencida) clearSession();
+  }, [sesionVencida]);
 
   if (!session) return <LoginForm />;
   if (!esAdmin) return <SinPermisos nombre={session.user.name} />;
-
-  if (isError && error instanceof RequestError && [401, 403].includes(error.statusCode)) {
-    clearSession();
-    return <LoginForm />;
-  }
+  if (sesionVencida) return <LoginForm />;
 
   async function abrirEdicion(item: AdminCircuitListItem) {
     try {
@@ -221,8 +324,6 @@ export function AdminPage() {
       toast('No se pudo cargar el circuito');
     }
   }
-
-  const hayCircuitos = (circuits ?? []).length > 0;
 
   return (
     <div className="min-h-full">
@@ -242,7 +343,7 @@ export function AdminPage() {
       </header>
 
       <main className="mx-auto max-w-3xl p-4">
-        <Resumen />
+        <Resumen data={stats} />
 
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end">
           <div className="flex-1">
@@ -268,23 +369,25 @@ export function AdminPage() {
           </Button>
         </div>
 
+        {/* se envuelve en vez de desbordarse: seis pestañas no entran en un
+            teléfono, y un carrusel horizontal esconde las últimas sin avisar */}
         <div
-          className="mb-4 inline-flex rounded-xl bg-white/8 p-1 ring-1 ring-white/10"
+          className="mb-4 flex flex-wrap items-center gap-1 rounded-xl bg-white/8 p-1 ring-1 ring-white/10"
           role="group"
           aria-label="Filtrar por estado"
         >
           {FILTROS.map((f) => (
             <button
               key={f}
-              onClick={() => setFiltro(f)}
+              onClick={() => cambiarFiltro(f)}
               aria-pressed={filtro === f}
-              className={`min-h-9 rounded-md px-3 text-sm font-medium transition-colors ${
+              className={`min-h-9 rounded-md px-3 text-sm font-medium transition-colors duration-[var(--duracion-rapida)] ease-suave ${
                 filtro === f
                   ? 'bg-white/15 text-white shadow-card'
                   : 'text-white/60 hover:text-white'
               }`}
             >
-              {f === 'todos' ? 'Todos' : STATUS_LABEL[f]}
+              {FILTRO_LABEL[f]}
               {f === 'propuesto' && pendientes > 0 && (
                 <span className="ml-1.5 rounded-full bg-brand-700 px-1.5 py-0.5 text-xs font-bold text-white tabular-nums">
                   {pendientes}
@@ -292,6 +395,18 @@ export function AdminPage() {
               )}
             </button>
           ))}
+          <span aria-hidden="true" className="mx-1 h-5 w-px shrink-0 bg-white/15" />
+          <button
+            onClick={() => cambiarFiltro('todos')}
+            aria-pressed={filtro === 'todos'}
+            className={`min-h-9 rounded-md px-3 text-sm font-medium transition-colors duration-[var(--duracion-rapida)] ease-suave ${
+              filtro === 'todos'
+                ? 'bg-white/15 text-white shadow-card'
+                : 'text-white/60 hover:text-white'
+            }`}
+          >
+            Ver todos
+          </button>
         </div>
 
         {isPending && (
@@ -306,12 +421,20 @@ export function AdminPage() {
         {!isPending && visibles.length === 0 && (
           <div className="tarjeta px-4 py-10 text-center">
             <p className="font-medium text-white/80">
-              {hayCircuitos ? 'Ningún circuito coincide con el filtro.' : 'Todavía no hay circuitos.'}
+              {busquedaAplicada
+                ? `Ningún circuito coincide con «${busquedaAplicada}».`
+                : filtro === 'todos'
+                  ? 'Todavía no hay circuitos.'
+                  : `No hay circuitos en «${FILTRO_LABEL[filtro]}».`}
             </p>
             <p className="mt-1 text-sm text-white/55">
-              {hayCircuitos
-                ? 'Probá con otro estado o borrá la búsqueda.'
-                : 'Cargá el primero con su archivo GPX y quedará listo para publicar.'}
+              {busquedaAplicada
+                ? filtro === 'todos'
+                  ? 'Probá con otro texto o borralo para ver la lista entera.'
+                  : `Buscá en «Ver todos»: puede estar en otro estado.`
+                : filtro === 'todos'
+                  ? 'Cargá el primero con su archivo GPX y quedará listo para publicar.'
+                  : 'Probá con otro estado o mirá «Ver todos».'}
             </p>
           </div>
         )}
@@ -342,10 +465,15 @@ export function AdminPage() {
               */}
               <div className="flex items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
+                  {/* la mutación es una sola para toda la lista, así que se mira
+                      también de qué fila es: sin esto, un doble clic mandaba dos
+                      PATCH del mismo circuito, y deshabilitar por `isPending` a
+                      secas apagaba los botones de todas las filas a la vez */}
                   {item.status !== 'published' ? (
                     <Button
                       variante="success"
                       tamano="sm"
+                      disabled={cambiando === item.id}
                       onClick={() => statusMutation.mutate({ id: item.id, status: 'published' })}
                     >
                       Publicar
@@ -354,6 +482,7 @@ export function AdminPage() {
                     <Button
                       variante="secondary"
                       tamano="sm"
+                      disabled={cambiando === item.id}
                       onClick={() => statusMutation.mutate({ id: item.id, status: 'draft' })}
                     >
                       Despublicar
@@ -368,6 +497,13 @@ export function AdminPage() {
                     </ButtonLink>
                   )}
                 </div>
+                {/*
+                  El borrado definitivo solo existe donde la API lo acepta
+                  —rechazado y archivado—: en cualquier otro estado responde 409,
+                  así que ofrecerlo sería prometer algo que no va a pasar. Lleva
+                  icono además de texto, para que no se confunda de un vistazo con
+                  «Archivar», que sí se deshace.
+                */}
                 {item.status === 'propuesto' ? (
                   <Button
                     variante="danger"
@@ -377,22 +513,75 @@ export function AdminPage() {
                   >
                     Rechazar
                   </Button>
+                ) : item.status === 'archived' || item.status === 'rechazado' ? (
+                  <Button
+                    variante="danger"
+                    tamano="sm"
+                    className="shrink-0"
+                    onClick={() => setPorBorrar(item)}
+                  >
+                    <IconoTacho />
+                    Borrar
+                  </Button>
                 ) : (
-                  item.status !== 'archived' && (
-                    <Button
-                      variante="danger"
-                      tamano="sm"
-                      className="shrink-0"
-                      onClick={() => setPorArchivar(item)}
-                    >
-                      Archivar
-                    </Button>
-                  )
+                  <Button
+                    variante="danger"
+                    tamano="sm"
+                    className="shrink-0"
+                    onClick={() => setPorArchivar(item)}
+                  >
+                    Archivar
+                  </Button>
                 )}
               </div>
             </li>
           ))}
         </ul>
+
+        {/* mientras hay una sola página no ocupa lugar: no hay nada que decidir */}
+        {totalPaginas > 1 && (
+          <nav
+            className="mt-4 flex items-center justify-between gap-3"
+            aria-label="Paginación del listado"
+          >
+            <Button
+              variante="secondary"
+              tamano="sm"
+              disabled={pagina === 0}
+              onClick={() => setPagina((p) => Math.max(0, p - 1))}
+            >
+              <span aria-hidden="true">←</span> Anterior
+            </Button>
+            {/* aria-live: quien navega con lector se entera de que cambió la página,
+                que si no es un cambio silencioso en medio de la lista */}
+            <p className="text-sm text-white/65 tabular-nums" aria-live="polite">
+              Página {pagina + 1} de {totalPaginas}
+              <span className="hidden sm:inline"> · {total} circuitos</span>
+            </p>
+            <Button
+              variante="secondary"
+              tamano="sm"
+              disabled={pagina >= totalPaginas - 1}
+              onClick={() => setPagina((p) => p + 1)}
+            >
+              Siguiente <span aria-hidden="true">→</span>
+            </Button>
+          </nav>
+        )}
+
+        {porBorrar && (
+          <BorrarModal
+            item={porBorrar}
+            onClose={() => setPorBorrar(null)}
+            onHecho={() => {
+              setPorBorrar(null);
+              void queryClient.invalidateQueries({ queryKey: circuitKeys.all });
+              void queryClient.invalidateQueries({ queryKey: circuitKeys.adminList });
+              void queryClient.invalidateQueries({ queryKey: circuitKeys.adminStats });
+              toast('Circuito borrado para siempre', 'success');
+            }}
+          />
+        )}
 
         {porRechazar && (
           <RechazarModal
@@ -401,7 +590,7 @@ export function AdminPage() {
             onHecho={() => {
               setPorRechazar(null);
               void queryClient.invalidateQueries({ queryKey: circuitKeys.adminList });
-              void queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+              void queryClient.invalidateQueries({ queryKey: circuitKeys.adminStats });
               toast('Propuesta rechazada', 'success');
             }}
           />
@@ -504,6 +693,76 @@ function RechazarModal({
           onClick={() => mutation.mutate()}
         >
           {mutation.isPending ? 'Rechazando…' : 'Rechazar'}
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * Borrado definitivo. Es la única acción del panel que no se puede deshacer: no
+ * cambia un estado, saca la fila de la base y se lleva con ella las fotos y el
+ * archivo del recorrido.
+ *
+ * Por eso no alcanza con un «¿seguro?»: hay que escribir el nombre del circuito.
+ * Un botón de confirmar a un clic de distancia se aprieta por inercia, sobre todo
+ * cuando el modal de al lado —«Archivar»— se confirma igual y no borra nada.
+ */
+function BorrarModal({
+  item,
+  onClose,
+  onHecho,
+}: {
+  item: AdminCircuitListItem;
+  onClose: () => void;
+  onHecho: () => void;
+}) {
+  const [escrito, setEscrito] = useState('');
+  const toast = useToast();
+  // sin distinguir mayúsculas ni espacios de los bordes: la traba es no borrar
+  // por reflejo, no tomar un dictado
+  const coincide = escrito.trim().toLowerCase() === item.name.trim().toLowerCase();
+
+  const mutation = useMutation({
+    mutationFn: () => api.admin.borrarDefinitivo(item.id),
+    onSuccess: onHecho,
+    onError: (e) => toast(mensajeParaPersona(e)),
+  });
+
+  return (
+    <Modal title="Borrar para siempre" onClose={onClose}>
+      {/* la advertencia va en rojo y arriba de todo: es lo primero que se lee, no
+          una nota al pie debajo del campo */}
+      <div className="mb-4 rounded-xl border border-red-400/30 bg-red-500/12 p-3">
+        <p className="text-sm font-semibold text-red-200">Esto no se puede deshacer.</p>
+        <p className="mt-1 text-sm text-red-100/85">
+          <strong className="font-semibold text-white">{item.name}</strong> desaparece de la base
+          junto con sus fotos y su archivo del recorrido. No queda copia ni forma de recuperarlo.
+        </p>
+      </div>
+      <p className="mb-4 text-sm text-white/65">
+        Si solo querés sacarlo del mapa, cerrá esto y usá <strong>Archivar</strong>: eso se puede
+        revertir cuando quieras.
+      </p>
+      <Field
+        label={`Escribí «${item.name}» para habilitar el botón`}
+        id="confirmar-borrado"
+        autoComplete="off"
+        value={escrito}
+        onChange={(e) => setEscrito(e.target.value)}
+        placeholder={item.name}
+      />
+      <div className="mt-5 flex gap-2">
+        <Button variante="secondary" ancho onClick={onClose}>
+          Cancelar
+        </Button>
+        <Button
+          variante="danger-solido"
+          ancho
+          disabled={!coincide || mutation.isPending}
+          onClick={() => mutation.mutate()}
+        >
+          {mutation.isPending ? 'Borrando…' : 'Borrar para siempre'}
         </Button>
       </div>
     </Modal>
