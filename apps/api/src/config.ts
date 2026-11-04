@@ -57,12 +57,9 @@ const envSchema = z.object({
    * A dónde avisar que llegó un circuito propuesto. Con `vacioEsIndefinido` como
    * el resto de las opcionales: los paneles guardan '' cuando dejás el campo en
    * blanco, y con la cadena vacía el default no entra, la validación falla y el
-   * proceso no arranca.
+   * proceso no arranca. Sin valor no se avisa: la propuesta se guarda igual.
    */
-  PROPUESTAS_EMAIL: z.preprocess(
-    vacioEsIndefinido,
-    z.string().email().default('valentincarpio32@gmail.com'),
-  ),
+  PROPUESTAS_EMAIL: z.preprocess(vacioEsIndefinido, z.string().email().optional()),
 });
 
 export type Config = z.infer<typeof envSchema>;
