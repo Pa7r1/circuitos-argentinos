@@ -43,6 +43,16 @@ describe('loadConfig · CORS_ORIGIN', () => {
 describe('loadConfig · variables opcionales en blanco', () => {
   const CON_CORS = { ...BASE, CORS_ORIGIN: 'https://a.com' };
 
+  it('sin PROPUESTAS_EMAIL no hay destinatario por defecto', () => {
+    expect(loadConfig(CON_CORS).PROPUESTAS_EMAIL).toBeUndefined();
+    expect(loadConfig({ ...CON_CORS, PROPUESTAS_EMAIL: '' }).PROPUESTAS_EMAIL).toBeUndefined();
+  });
+
+  it('PROPUESTAS_EMAIL con valor se conserva', () => {
+    const config = loadConfig({ ...CON_CORS, PROPUESTAS_EMAIL: 'avisos@ejemplo.com' });
+    expect(config.PROPUESTAS_EMAIL).toBe('avisos@ejemplo.com');
+  });
+
   it('una clave de correo vacía no impide arrancar', () => {
     const config = loadConfig({ ...CON_CORS, RESEND_API_KEY: '' });
     expect(config.RESEND_API_KEY).toBeUndefined();

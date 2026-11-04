@@ -89,18 +89,22 @@ export function propuestasRoutes(config: Config, service: AdminService) {
          * El aviso va después de guardar y no bloquea la respuesta: perder una
          * propuesta porque el correo falló sería el peor resultado posible.
          */
-        void enviarEmail(
-          config,
-          request.log,
-          config.PROPUESTAS_EMAIL,
-          `Circuito propuesto: ${parsed.data.name}`,
-          [
-            `${request.user.name} propuso "${parsed.data.name}" (${parsed.data.locality ?? 'sin localidad'}).`,
-            `Teléfono: ${telefono.data}`,
-            '',
-            `Revisalo en ${config.APP_URL}/admin`,
-          ].join('\n'),
-        ).catch((error: unknown) => request.log.error({ error }, 'no se pudo avisar la propuesta'));
+        if (config.PROPUESTAS_EMAIL) {
+          void enviarEmail(
+            config,
+            request.log,
+            config.PROPUESTAS_EMAIL,
+            `Circuito propuesto: ${parsed.data.name}`,
+            [
+              `${request.user.name} propuso "${parsed.data.name}" (${parsed.data.locality ?? 'sin localidad'}).`,
+              `Teléfono: ${telefono.data}`,
+              '',
+              `Revisalo en ${config.APP_URL}/admin`,
+            ].join('\n'),
+          ).catch((error: unknown) => request.log.error({ error }, 'no se pudo avisar la propuesta'));
+        } else {
+          request.log.warn({ circuito: parsed.data.name }, 'sin PROPUESTAS_EMAIL: la propuesta no se avisa');
+        }
 
         return reply.status(201).send(creado);
       },
