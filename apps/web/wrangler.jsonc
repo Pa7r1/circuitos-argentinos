@@ -1,15 +1,27 @@
-// Despliegue del frontend en Cloudflare Workers (assets estáticos, sin código de
-// servidor). Cloudflare conecta el repo por Workers Builds y en cada push a main
-// corre el build de vite y sube el contenido de dist.
+// Despliegue del frontend en Cloudflare Workers. Lo publica el workflow
+// .github/workflows/deploy-web.yml en cada push a main.
 //
 // `not_found_handling` en modo SPA hace que cualquier ruta desconocida devuelva
 // index.html con estado 200, que es lo que necesita el router del navegador para
 // que los enlaces compartidos (/circuitos/:slug, /admin) abran directo.
+//
+// `main` existe solo por el cron que mantiene despierta la API (worker/index.ts).
+// Los pedidos HTTP los siguen resolviendo los assets antes de llegar al código.
 {
   "name": "circuitos-argentinos",
   "compatibility_date": "2026-07-26",
+  "main": "./worker/index.ts",
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
-  }
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+  },
+  // Render duerme la API a los 15 minutos sin tráfico: cada 10 nunca llega
+  "triggers": {
+    "crons": ["*/10 * * * *"],
+  },
+  // el workflow la pisa con `--var` usando la misma URL que el build del frontend
+  "vars": {
+    "API_URL": "https://circuitos-api.onrender.com",
+  },
 }
