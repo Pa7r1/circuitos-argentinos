@@ -217,7 +217,10 @@ describe('flujo admin completo', () => {
       { name: 'difficulty', data: 'dificil' },
       { name: 'accessType', data: 'con_permiso' },
       { name: 'accessNotes', data: 'Pedir permiso en el club' },
-      { name: 'schedules', data: JSON.stringify([{ dayOfWeek: 6, opens: '09:00', closes: '18:00' }]) },
+      {
+        name: 'schedules',
+        data: JSON.stringify([{ dayOfWeek: 6, opens: '09:00', closes: '18:00' }]),
+      },
     ]);
     const res = await app.inject({
       method: 'POST',
@@ -326,6 +329,17 @@ describe('flujo admin completo', () => {
     expect(foto.statusCode).toBe(200);
     expect(foto.headers['content-type']).toBe('image/png');
     expect(foto.rawPayload.equals(fakePng)).toBe(true);
+  });
+
+  it('la ficha trae las fotos en orden junto con los horarios', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/v1/circuits/${circuitSlug}`,
+      headers: userAuth,
+    });
+    const detail = res.json<CircuitDetail>();
+    expect(detail.media).toEqual([{ url: fotoUrl, kind: 'photo', position: 0 }]);
+    expect(detail.schedules).toHaveLength(1);
   });
 
   it('la foto se sirve sin sesión y cacheada, y da 404 si no existe', async () => {

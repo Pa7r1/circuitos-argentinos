@@ -1,9 +1,15 @@
-# Despliegue en producción (costo cero)
+# Despliegue en servidor propio
 
-Arquitectura: frontend en **Cloudflare Pages** (gratis), API + base de datos en un **VPS Oracle Cloud Always Free** (Ubuntu 24.04 ARM), DNS en **Cloudflare**.
+> **Esto no es lo que corre hoy en producción.** El sitio publicado usa un Worker de
+> Cloudflare para la web, Render para la API y Neon para la base: ver
+> [`DESPLIEGUE-GRATIS.md`](DESPLIEGUE-GRATIS.md). Esta guía es la alternativa para
+> el día que el plan gratuito no alcance: API y base en un VPS propio, con backups
+> y sin que la API se duerma nunca.
+
+Arquitectura: frontend en el **Worker de Cloudflare** (el mismo de siempre), API + base de datos en un **VPS Oracle Cloud Always Free** (Ubuntu 24.04 ARM), DNS en **Cloudflare**.
 
 ```
-usuario ── circuitosargentinos.com ──► Cloudflare Pages (apps/web)
+usuario ── circuitosargentinos.com ──► Worker de Cloudflare (apps/web)
        └── api.circuitosargentinos.com ──► VPS: Caddy ──► API ──► PostGIS
 ```
 
@@ -31,7 +37,7 @@ sudo ufw enable
 sudo systemctl enable --now fail2ban
 ```
 
-> En Oracle Cloud también hay que abrir 80/443 en la *Security List* de la VCN (el firewall de Oracle es adicional a ufw).
+> En Oracle Cloud también hay que abrir 80/443 en la _Security List_ de la VCN (el firewall de Oracle es adicional a ufw).
 
 ### Docker
 
@@ -61,7 +67,7 @@ CORS_ORIGIN=https://circuitosargentinos.com
 # y pegar el hash (empieza con $2b$)
 ```
 
-`DATABASE_URL` y los directorios los define `docker-compose.prod.yml`; no hace falta tocarlos.
+`DATABASE_URL` la define `docker-compose.prod.yml`; no hace falta tocarla. Las fotos y los GPX viven en la base, así que el único dato a respaldar es el volumen de Postgres.
 
 ## 3. Levantar y migrar
 
@@ -78,12 +84,12 @@ Verificar: `curl -s http://localhost/api/v1/health` desde el VPS (antes del DNS,
 
 1. Agregar el dominio `circuitosargentinos.com` a Cloudflare.
 2. **API**: A record `api` → IP pública del VPS, **DNS only** (nube gris: Caddy necesita emitir el certificado Let's Encrypt).
-3. **Frontend**: crear el proyecto en **Cloudflare Pages** conectado al repo de GitHub (o usar el workflow `deploy-web.yml`). Asignar el dominio raíz `circuitosargentinos.com` al proyecto Pages.
+3. **Frontend**: lo publica el workflow `deploy-web.yml` como Worker. Asignar el dominio raíz en el Worker → _Settings → Domains & Routes_.
 
 ## 5. GitHub Actions
 
 - `ci.yml`: corre lint + typecheck + tests (con PostGIS real) en cada PR y push a main.
-- `deploy-web.yml`: build y deploy del frontend a Cloudflare Pages en cada push a main. Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`; variable: `VITE_API_URL=https://api.circuitosargentinos.com`.
+- `deploy-web.yml`: build y deploy del frontend como Worker de Cloudflare en cada push a main. Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`; variable del repo: `VITE_API_URL=https://api.circuitosargentinos.com`. El mismo valor lo usa el cron del Worker que le pega al health cada 10 minutos; en un VPS no hace falta, pero tampoco molesta.
 - API: deploy manual en el VPS:
   ```bash
   cd ~/circuitos-argentinos && git pull && docker compose -f docker-compose.prod.yml up -d --build

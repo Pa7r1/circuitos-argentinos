@@ -29,6 +29,13 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # No es un secreto: viaja incrustada en el JavaScript que descarga cualquier
+    # visitante. Si falta, el frontend se pide la API a sí mismo, recibe el
+    # index.html con estado 200 y el mapa queda vacío sin ningún error visible. La
+    # variable del repo permite cambiarla sin tocar código. La usan el build y el
+    # cron del Worker que mantiene despierta la API.
+    env:
+      API_URL: ${{ vars.VITE_API_URL || 'https://circuitos-api.onrender.com' }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -39,19 +46,15 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Compilar el frontend
-        # No es un secreto: viaja incrustada en el JavaScript que descarga cualquier
-        # visitante. Va acá con valor fijo porque si falta, el frontend se pide la API
-        # a sí mismo, recibe el index.html con estado 200 y el mapa queda vacío sin
-        # ningún error visible. La variable del repo permite cambiarla sin tocar código.
         env:
-          VITE_API_URL: ${{ vars.VITE_API_URL || 'https://circuitos-api.onrender.com' }}
+          VITE_API_URL: ${{ env.API_URL }}
         run: pnpm --filter web build
 
       - name: Comprobar que la URL de la API quedó en el bundle
-        run: grep -rq 'https://circuitos-api.onrender.com' apps/web/dist/assets
+        run: grep -rqF "$API_URL" apps/web/dist/assets
 
       - name: Publicar el Worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx --yes wrangler@4 deploy -c apps/web/wrangler.jsonc
+        run: npx --yes wrangler@4 deploy -c apps/web/wrangler.jsonc --var "API_URL:$API_URL"
