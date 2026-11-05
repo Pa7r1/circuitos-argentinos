@@ -120,7 +120,22 @@ export function circuitsRepository(db: Db) {
                -- se pregunta por el archivo, no por gpx_url: en producción hay
                -- filas con el GPX guardado y esa columna en null, y la descarga
                -- desaparecía de una ficha que sí tenía archivo
-               EXISTS (SELECT 1 FROM circuit_gpx g WHERE g.circuit_id = c.id) AS has_gpx
+               EXISTS (SELECT 1 FROM circuit_gpx g WHERE g.circuit_id = c.id) AS has_gpx,
+               -- horarios y fotos en la misma consulta: la API y la base están en
+               -- regiones distintas y cada ida y vuelta extra se nota en la ficha
+               COALESCE((
+                 SELECT json_agg(json_build_object(
+                          'dayOfWeek', s.day_of_week, 'opens', s.opens,
+                          'closes', s.closes, 'note', s.note)
+                        ORDER BY s.day_of_week)
+                 FROM circuit_schedules s WHERE s.circuit_id = c.id
+               ), '[]'::json) AS schedules,
+               COALESCE((
+                 SELECT json_agg(json_build_object(
+                          'url', m.url, 'kind', m.kind, 'position', m.position)
+                        ORDER BY m.position)
+                 FROM circuit_media m WHERE m.circuit_id = c.id
+               ), '[]'::json) AS media
         FROM circuits c
         JOIN disciplines d ON d.id = c.discipline_id
         JOIN provinces p ON p.id = c.province_id
@@ -129,18 +144,8 @@ export function circuitsRepository(db: Db) {
       const row = (rows as unknown as Record<string, unknown>[])[0];
       if (!row) return null;
 
-      const id = row.id as string;
-      const schedules = (await db.execute(sql`
-        SELECT day_of_week, opens, closes, note
-        FROM circuit_schedules WHERE circuit_id = ${id}
-        ORDER BY day_of_week ASC
-      `)) as unknown as { day_of_week: number; opens: string | null; closes: string | null; note: string | null }[];
-
-      const media = (await db.execute(sql`
-        SELECT url, kind, position
-        FROM circuit_media WHERE circuit_id = ${id}
-        ORDER BY position ASC
-      `)) as unknown as CircuitMedia[];
+      const schedules = row.schedules as CircuitSchedule[];
+      const media = row.media as CircuitMedia[];
 
       return {
         slug: row.slug as string,
@@ -159,14 +164,13 @@ export function circuitsRepository(db: Db) {
         track: row.track ? (JSON.parse(row.track as string) as GeoJsonLineString) : null,
         externalMapUrl: row.external_map_url as string | null,
         hasGpx: row.has_gpx as boolean,
-        schedules: schedules.map(
-          (s): CircuitSchedule => ({
-            dayOfWeek: s.day_of_week,
-            opens: s.opens?.slice(0, 5) ?? null,
-            closes: s.closes?.slice(0, 5) ?? null,
-            note: s.note,
-          }),
-        ),
+        // la columna es `time`: llega como "09:00:00" y la ficha muestra "09:00"
+        schedules: schedules.map((s): CircuitSchedule => ({
+          dayOfWeek: s.dayOfWeek,
+          opens: s.opens?.slice(0, 5) ?? null,
+          closes: s.closes?.slice(0, 5) ?? null,
+          note: s.note,
+        })),
         media: media.map((m) => ({ url: m.url, kind: m.kind, position: m.position })),
       };
     },
